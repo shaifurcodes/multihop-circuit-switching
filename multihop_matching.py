@@ -42,3 +42,4 @@ if __name__ == '__main__':
     mmatching.calculate_edge_weights()
     r, c = mmatching.get_bipartite_matching()
     print (r, c)
+    print (mmatching.current_next_hop_traffic)

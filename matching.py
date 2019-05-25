@@ -31,16 +31,22 @@ class Matching(object):
         self.routing_table =  None #next hop matrix
 
         self.edge_weights = None #edge-weights calculated by the calculate_edge_weights(..) method
-        self.current_traffic = None
-        self.current_routing_table = None
+        self.current_next_hop_traffic = None # 2D array each containing list of tuples (src, dest, next_node, flow_value)
+        self.stat_routed_flows = None
+
+        self.alpha = 0
 
         self.load_topology(topo_file)
         self.load_traffic(traffic_file)
         if routing_file is not None:
             self.load_routes(routing_file)
+            self.init_current_next_hop_traffic()
+        else:
+            self.init_c_n_h_traffic_without_input()
 
+        self.stat_routed_flows = np.zeros((self.n, self.n), dtype=np.longlong)
+        self.stat_fct = np.zeros((self.n, self.n), dtype=np.longlong)
         return
-
 
     def load_topology(self, input_file):
         '''
@@ -88,7 +94,6 @@ class Matching(object):
         if self.traffic.shape[0] > self.n or self.traffic.shape[1] > self.n:
             print( colored( ("Error @load_traffic(..) Traffic-matrix shape from file ", input_file,", does not match #-of nodes from topology file !!"), "red") )
             exit(1)
-        self.current_traffic = deepcopy(self.traffic)
         return
 
     def load_routes(self, input_file, inter_node_delim = ',', src_dest_path_delim = ':'):
@@ -123,11 +128,120 @@ class Matching(object):
                         self.routing_table[i][j] = next_hops
                 except:
                     print( colored( ("Error @load_routes(..) Error in loading route matrix from file ", input_file), "red") )
-        self.current_routing_table = deepcopy(self.routing_table)
+                    exit(1)
         return
 
     def update_traffic(self, n1, n2,  ):
 
+        return
+
+    def init_current_next_hop_traffic(self):
+        '''
+
+        :return:
+        '''
+        self.current_next_hop_traffic = [ [] for i in range(self.n) ]
+        for i in range(self.n):
+            for j in range(self.n):
+                flow_val = self.traffic[i, j]
+                next_hop = -1
+                if flow_val > 0:
+                    if len(self.routing_table[i][j]) > 0:
+                        next_hop = self.routing_table[i][j][0]
+                    else:
+                        next_hop = j
+                    self.current_next_hop_traffic[i].append( (i, j, next_hop, flow_val) )
+
+        return
+
+    def init_c_n_h_traffic_without_input(self):
+        '''
+
+        :return:
+        '''
+        #TODO: without input file, generate intial routes/paths for current_next_hop_traffic matrix
+        return
+
+    def find_next_hop(self, src, dest, cur_hop):
+        '''
+
+        :param src:
+        :param dest:
+        :param cur_hop:
+        :return:
+        '''
+        if self.routing_table is None:
+            #TODO: handle missing routing table (generate route as well)
+            print("routing table still empty!!")
+            exit(1)
+        else:
+            routing_path = self.routing_table[src][dest]
+            if len(routing_path) > 0: #indirect routing
+                cur_hop_indx = -1
+                try:
+                    cur_hop_indx = routing_path.index(cur_hop)
+                except  ValueError:
+                    print (colored("Error @find_next_hop(..) next hop not found for (src,dest,curhop):",src,dest,cur_hop), "red")
+                    exit(1)
+                if cur_hop_indx+1 >= len(routing_path):
+                    return dest
+                else:
+                    return routing_path[cur_hop_indx+1]
+            else: #direct routing
+                return dest
+        return None # fix it for non-existent routing table
+
+    def route_traffic(self, cur_node, src, dest, in_flow_val=-1):
+        '''
+        route routed_flow_val amount of packets from n to the next hop for (src, dest) flow
+        if routed_flow_val is -1, then flow whatever flow left at that node
+        :param cur_node: current node
+        :param src:
+        :param dest:
+        :param in_flow_val:
+        :return:
+        '''
+        cur_flow_val, cur_next_hop, cur_indx = -1, -1, -1
+        for indx, val in enumerate( self.current_next_hop_traffic[cur_node] ):
+            i , j , nh, f = val
+            if i== src and j==dest:
+                cur_flow_val, cur_next_hop, cur_indx = f, nh, indx
+                break
+        if cur_flow_val == -1:
+            print(colored(("Error @route_traffic(..) current (src, dest):", src, dest," not found in cur_node: ", cur_node), "red"))
+            return
+        #else---
+        routed_flow_val = in_flow_val
+        if routed_flow_val ==-1:
+            routed_flow_val = cur_flow_val
+
+
+        if dest == cur_next_hop: #destination reached for this flow
+            self.collect_stat(src, dest, routed_flow_val)
+        else: #--update entry for the next hop
+            new_next_hop = self.find_next_hop(src, dest, cur_next_hop)
+            self.current_next_hop_traffic[cur_next_hop].append( (src, dest, new_next_hop, routed_flow_val) )
+
+        remaining_flow = cur_flow_val - routed_flow_val
+
+        #---updat entry for cur hop
+        if remaining_flow>0: #update for remaining flows
+            self.current_next_hop_traffic[cur_node][cur_indx] =  (src, dest, cur_next_hop, remaining_flow)
+        else: #remove entry for current hop
+            del self.current_next_hop_traffic[cur_node][cur_indx]
+        return
+
+    def collect_stat(self, src, dest, flow_val):
+        '''
+
+        :param src:
+        :param dest:
+        :param flow:
+        :return:
+        '''
+        self.stat_routed_flows[src, dest] += flow_val
+        if self.stat_routed_flows[src, dest] == self.traffic[src, dest]:
+            self.stat_fct[src, dest] = self.alpha
         return
 
     def calculate_edge_weights(self):
@@ -159,7 +273,28 @@ if __name__ == '__main__':
 
     m = Matching(topo_file=topo_file, traffic_file=traffic_file, routing_file=routing_file)
 
-    m.calculate_edge_weights()
+    print(m.current_next_hop_traffic)
 
-    r, c = m.get_bipartite_matching()
-    print(r, c)
+    m.alpha = 2
+    m.route_traffic(0, 0, 1)
+    m.route_traffic(0, 0, 3)
+    m.route_traffic(1, 1, 2)
+    m.route_traffic(1, 1, 3)
+    m.alpha = 5
+    print(m.current_next_hop_traffic)
+
+    m.route_traffic(3, 0, 1)
+    m.route_traffic(1, 0, 3)
+    m.alpha = 10
+    print(m.current_next_hop_traffic)
+
+    m.route_traffic(2, 0, 1)
+    m.alpha = 20
+    print(m.current_next_hop_traffic)
+
+    print(m.stat_routed_flows)
+    print(m.stat_fct)
+    #m.calculate_edge_weights()
+
+    #r, c = m.get_bipartite_matching()
+    #print(r, c)
