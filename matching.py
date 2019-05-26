@@ -17,8 +17,7 @@ __copyright__ = "Copyright 2019, WINGS Lab, Stony Brook University"
 #---start here--->
 import numpy as np
 from termcolor import colored
-from scipy.optimize import linear_sum_assignment
-from copy import  deepcopy
+
 
 class Matching(object):
     def __init__(self, topo_file, traffic_file, routing_file = None):
@@ -34,7 +33,7 @@ class Matching(object):
         self.current_next_hop_traffic = None # 2D array each containing list of tuples (src, dest, next_node, flow_value)
         self.stat_routed_flows = None
 
-        self.alpha = 0
+        self.cur_time = 0
 
         self.load_topology(topo_file)
         self.load_traffic(traffic_file)
@@ -131,10 +130,6 @@ class Matching(object):
                     exit(1)
         return
 
-    def update_traffic(self, n1, n2,  ):
-
-        return
-
     def init_current_next_hop_traffic(self):
         '''
 
@@ -191,7 +186,21 @@ class Matching(object):
                 return dest
         return None # fix it for non-existent routing table
 
-    def route_traffic(self, cur_node, src, dest, in_flow_val=-1):
+    def find_flows_between_nodes(self, cur_node, next_node):
+        '''
+
+        :param cur_node:
+        :param next_node:
+        :return:
+        '''
+        flow_list = []
+        for val in  self.current_next_hop_traffic[cur_node] :
+            i , j , nh, f = val
+            if nh == next_node:
+                flow_list.append((i, j, f))
+        return flow_list
+
+    def forward_packets(self, cur_node, src, dest, in_flow_val=-1):
         '''
         route routed_flow_val amount of packets from n to the next hop for (src, dest) flow
         if routed_flow_val is -1, then flow whatever flow left at that node
@@ -241,7 +250,7 @@ class Matching(object):
         '''
         self.stat_routed_flows[src, dest] += flow_val
         if self.stat_routed_flows[src, dest] == self.traffic[src, dest]:
-            self.stat_fct[src, dest] = self.alpha
+            self.stat_fct[src, dest] = self.cur_time
         return
 
     def calculate_edge_weights(self):
@@ -249,17 +258,23 @@ class Matching(object):
         abstract class
         :return:
         '''
-        self.edge_weights = np.zeros( (self.n, self.n), dtype=np.float )
 
         return
 
-    def get_bipartite_matching(self):
+    def find_M_alpha(self):
         '''
+        abstract class
         :return:
         '''
-        row_indx, col_indx = linear_sum_assignment(- self.edge_weights)
+        return
 
-        return row_indx, col_indx
+    # def get_bipartite_matching(self):
+    #     '''
+    #     :return:
+    #     '''
+    #     row_indx, col_indx = linear_sum_assignment(- self.edge_weights)
+    #
+    #     return row_indx, col_indx
 
     #-------end of class definition--------------#
 
@@ -276,19 +291,19 @@ if __name__ == '__main__':
     print(m.current_next_hop_traffic)
 
     m.alpha = 2
-    m.route_traffic(0, 0, 1)
-    m.route_traffic(0, 0, 3)
-    m.route_traffic(1, 1, 2)
-    m.route_traffic(1, 1, 3)
+    m.forward_packets(0, 0, 1)
+    m.forward_packets(0, 0, 3)
+    m.forward_packets(1, 1, 2)
+    m.forward_packets(1, 1, 3)
     m.alpha = 5
     print(m.current_next_hop_traffic)
 
-    m.route_traffic(3, 0, 1)
-    m.route_traffic(1, 0, 3)
+    m.forward_packets(3, 0, 1)
+    m.forward_packets(1, 0, 3)
     m.alpha = 10
     print(m.current_next_hop_traffic)
 
-    m.route_traffic(2, 0, 1)
+    m.forward_packets(2, 0, 1)
     m.alpha = 20
     print(m.current_next_hop_traffic)
 
