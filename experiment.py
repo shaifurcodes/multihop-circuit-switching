@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+'''
+Module: matching
+List of entities:
+Use:
+
+'''
+from __future__ import  print_function
 from multihop_matching import Multihop_Matching,  ALGO_TYPE
 
 def experiment_runner():
@@ -5,7 +13,7 @@ def experiment_runner():
     traffic_file = './data/synthetic/traffic.txt'
     routing_file = './data/synthetic/routing.txt'
 
-    W = 1000
+    W = 40
     delta = 1
 
     algo_type = ALGO_TYPE.NAIVE

@@ -36,11 +36,10 @@ class Multihop_Matching( Matching ):
         self.W = W
         self.delta = delta
         self.edge_weights = None
-        #self.cur_time = 0
         self.cur_matching = None
         self.cur_alpha = -1
         self.matching_history = []
-        self.packet_forwarding_history = []
+        #self.packet_forwarding_history = []
 
         self.algo_type = ALGO_TYPE
         #self.cur_algo_type = ALGO_TYPE.NAIVE
@@ -55,7 +54,8 @@ class Multihop_Matching( Matching ):
         for cur_node, flows in enumerate( self.current_next_hop_traffic):
             for cur_flow in flows:
                 src, dest, next_hop, flow_val = cur_flow
-                self.edge_weights[cur_node, next_hop] += flow_val #TODO: divide by path length
+                if self.topology[cur_node, next_hop]:
+                    self.edge_weights[cur_node, next_hop] += flow_val #TODO: divide by path length
         return
 
     def find_M_alpha(self, max_duration = -1, hop_trick = False, epsilon_trick = False):
@@ -102,6 +102,8 @@ class Multihop_Matching( Matching ):
         '''
         snapshot_cur_matching = deepcopy(self.current_next_hop_traffic)
         for (n1, n2)  in self.cur_matching:
+            if not self.topology[n1, n2]: #no connection, useless matching
+                continue
             all_flows_between_n1_n2 = self.find_flows_between_nodes(n1, n2, nh_traffic= snapshot_cur_matching)
             ranked_flows_between_n1_n2 = self.rank_flows( all_flows_between_n1_n2 )
             remaining_time = self.cur_alpha

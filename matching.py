@@ -256,6 +256,9 @@ class Matching(object):
         if cur_flow_val == -1:
             print(colored(("Error @route_traffic(..) current (src, dest):", src, dest," not found in cur_node: ", cur_node), "red"))
             return
+        #if no link, ignore
+        if not self.topology[cur_node, cur_next_hop]:
+            return
         #else---
         routed_flow_val = in_flow_val
         if routed_flow_val ==-1:
