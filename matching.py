@@ -149,6 +149,19 @@ class Matching(object):
 
         return
 
+    def debug_pretty_print_init_traffic(self):
+        '''
+
+        :return:
+        '''
+        for n1 in range(self.n):
+            print("node: ",n1)
+            for val in self.current_next_hop_traffic[n1]:
+                src, dest, nh, f = val
+                print("\t(", src,",", dest,")->",nh," f:",f)
+        print("=======================================")
+        return
+
     def init_c_n_h_traffic_without_input(self):
         '''
 
@@ -186,19 +199,43 @@ class Matching(object):
                 return dest
         return None # fix it for non-existent routing table
 
-    def find_flows_between_nodes(self, cur_node, next_node):
+    def find_flows_between_nodes(self, cur_node, next_node, nh_traffic = None):
         '''
 
         :param cur_node:
         :param next_node:
+        :param nh_traffic:
         :return:
         '''
+        cur_nh_traffic = nh_traffic
+        if cur_nh_traffic is None:
+            cur_nh_traffic = self.current_next_hop_traffic
         flow_list = []
-        for val in  self.current_next_hop_traffic[cur_node] :
+        for val in  cur_nh_traffic[cur_node] :
             i , j , nh, f = val
             if nh == next_node:
                 flow_list.append((i, j, f))
         return flow_list
+
+    def find_flow_indx_at_node(self, cur_node, src, dest, nh_traffic = None):
+        '''
+
+        :param cur_node:
+        :param src:
+        :param dest:
+        :param nh_traffic:
+        :return:
+        '''
+        src_dest_indx  = -1
+        cur_nh_traffic = nh_traffic
+        if cur_nh_traffic is None:
+            cur_nh_traffic = self.current_next_hop_traffic
+        for indx, val in  enumerate( cur_nh_traffic[cur_node] ) :
+            i , j , nh, f = val
+            if i==src and j==dest:
+                src_dest_indx = indx
+                break
+        return src_dest_indx
 
     def forward_packets(self, cur_node, src, dest, in_flow_val=-1):
         '''
@@ -228,8 +265,13 @@ class Matching(object):
         if dest == cur_next_hop: #destination reached for this flow
             self.collect_stat(src, dest, routed_flow_val)
         else: #--update entry for the next hop
-            new_next_hop = self.find_next_hop(src, dest, cur_next_hop)
-            self.current_next_hop_traffic[cur_next_hop].append( (src, dest, new_next_hop, routed_flow_val) )
+            src_dest_indx = self.find_flow_indx_at_node(cur_node=cur_next_hop, src=src,dest=dest)
+            if src_dest_indx >=0:
+                src, dest, nh, f = self.current_next_hop_traffic[cur_next_hop][src_dest_indx]
+                self.current_next_hop_traffic[cur_next_hop][src_dest_indx] = (src, dest, nh, f+routed_flow_val)
+            else:
+                new_next_hop = self.find_next_hop(src, dest, cur_next_hop)
+                self.current_next_hop_traffic[cur_next_hop].append( (src, dest, new_next_hop, routed_flow_val) )
 
         remaining_flow = cur_flow_val - routed_flow_val
 
@@ -249,9 +291,19 @@ class Matching(object):
         :return:
         '''
         self.stat_routed_flows[src, dest] += flow_val
-        if self.stat_routed_flows[src, dest] == self.traffic[src, dest]:
-            self.stat_fct[src, dest] = self.cur_time
+        print("DEBUG: flow completed (src, dest, flow): ",src,dest, flow_val)
+        # if self.stat_routed_flows[src, dest] == self.traffic[src, dest]:
+        #     self.stat_fct[src, dest] = self.cur_time
         return
+
+    def find_demand_met(self):
+        '''
+
+        :return:
+        '''
+        total_demand = np.sum(self.traffic)
+        demand_met = np.sum(self.stat_routed_flows)
+        return 1.*demand_met/total_demand
 
     def calculate_edge_weights(self):
         '''
@@ -268,13 +320,6 @@ class Matching(object):
         '''
         return
 
-    # def get_bipartite_matching(self):
-    #     '''
-    #     :return:
-    #     '''
-    #     row_indx, col_indx = linear_sum_assignment(- self.edge_weights)
-    #
-    #     return row_indx, col_indx
 
     #-------end of class definition--------------#
 

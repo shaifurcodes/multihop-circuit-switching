@@ -20,6 +20,7 @@ from matching import  Matching
 import  numpy as np
 from enum import Enum
 from scipy.optimize import linear_sum_assignment
+from copy import  deepcopy
 
 class ALGO_TYPE(Enum):
     NAIVE = 1
@@ -99,8 +100,9 @@ class Multihop_Matching( Matching ):
         '''
         :return:
         '''
+        snapshot_cur_matching = deepcopy(self.current_next_hop_traffic)
         for (n1, n2)  in self.cur_matching:
-            all_flows_between_n1_n2 = self.find_flows_between_nodes(n1, n2)
+            all_flows_between_n1_n2 = self.find_flows_between_nodes(n1, n2, nh_traffic= snapshot_cur_matching)
             ranked_flows_between_n1_n2 = self.rank_flows( all_flows_between_n1_n2 )
             remaining_time = self.cur_alpha
             for (src, dest, f) in ranked_flows_between_n1_n2:
@@ -116,10 +118,8 @@ class Multihop_Matching( Matching ):
         :return:
         '''
         iteration_count = 0
-
-        print("iteration: ", iteration_count, "a/t ", self.cur_alpha, "/", self.cur_time)
-        self.debug_pretty_print()
-
+        print("iteration: ", iteration_count, " a/t  ", self.cur_alpha, "/", self.cur_time)
+        self.debug_pretty_print_init_traffic()
         while self.cur_time < self.W:
             iteration_count += 1
             remaining_time = self.W - self.cur_time
@@ -132,7 +132,7 @@ class Multihop_Matching( Matching ):
             self.route_flows()
 
             print("iteration: ",iteration_count, "a/t ",self.cur_alpha,"/",self.cur_time)
-            self.debug_pretty_print()
+            self.debug_pretty_print_current_traffic()
         return
 
 
@@ -141,13 +141,13 @@ class Multihop_Matching( Matching ):
             self.solve_multihop_routing_naive()
         return
 
-    def debug_pretty_print(self):
+    def debug_pretty_print_current_traffic(self):
         '''
-        #TODO: print trarffic in every node
         :return:
         '''
-        for n1 in range(self.n):
-            print("node: ", n1)
+        for val in self.cur_matching:
+            n1, n2 = val
+            print(n1, "-->",n2)
             for val in self.current_next_hop_traffic[n1]:
                 src, dest, nh, f = val
                 print("\t(", src,",", dest,")->",nh," f:",f)

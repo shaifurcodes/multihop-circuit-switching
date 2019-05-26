@@ -12,6 +12,8 @@ def experiment_runner():
 
     mmatching = Multihop_Matching(W=W, delta=delta, topo_file=topo_file, traffic_file=traffic_file, routing_file=routing_file)
     mmatching.solve_multihop_routing(algo_type=algo_type)
+    demand_met = mmatching.find_demand_met()
+    print("Demand Met: ",100.*demand_met,"%")
     return
 
 if __name__ == '__main__':
