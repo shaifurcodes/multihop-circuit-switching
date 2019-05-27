@@ -31,7 +31,8 @@ class Traffic_Generator(object):
                                    min_long_flow = 10,
                                    sparsity = 50.,
                                    skewness = 5,
-                                   max_hop = 3 ):
+                                   max_hop = 3,
+                                   generate_route_only = False ):
         '''
 
         :param base_file_name:
@@ -41,34 +42,33 @@ class Traffic_Generator(object):
         :return:
         '''
         #----------write topology file--------
-        if is_complete_graph:
-            with open(base_file_name+".topology.txt","w") as f:
-                f.write(str(number_of_nodes)+" C")
-        else:
-            pass #TODO: handle sparse graph-generation
+        if not generate_route_only:
+            if is_complete_graph:
+                with open(base_file_name+".topology.txt","w") as f:
+                    f.write(str(number_of_nodes)+" C")
+            else:
+                pass #TODO: handle sparse graph-generation
 
         #-------------write traffic file-------
-        traffic = np.zeros((number_of_nodes, number_of_nodes), dtype=np.longlong)
-        row, col = np.where(~np.eye(traffic.shape[0],dtype=bool))
-        n_nondiag = row.shape[0]
-        n_nonzero = int( np.round( sparsity*(number_of_nodes*number_of_nodes - number_of_nodes)/100.) )
-        nonzero_rc_indx = np.random.choice(n_nondiag, n_nonzero, replace=False)
+        if not generate_route_only:
+            traffic = np.zeros((number_of_nodes, number_of_nodes), dtype=np.longlong)
+            row, col = np.where(~np.eye(traffic.shape[0],dtype=bool))
+            n_nondiag = row.shape[0]
+            n_nonzero = int( np.round( sparsity*(number_of_nodes*number_of_nodes - number_of_nodes)/100.) )
+            nonzero_rc_indx = np.random.choice(n_nondiag, n_nonzero, replace=False)
 
 
-        for rc_indx in nonzero_rc_indx:
-            i, j = row[rc_indx], col[rc_indx]
-            traffic[i, j] = np.random.randint(1, min_long_flow, size = 1, dtype=np.longlong)
+            for rc_indx in nonzero_rc_indx:
+                i, j = row[rc_indx], col[rc_indx]
+                traffic[i, j] = np.random.randint(1, min_long_flow, size = 1, dtype=np.longlong)
 
-        n_long_flow = int( np.round(1.*n_nonzero*(1/(1+skewness)) ) )
-        long_rc_indx = np.random.choice(n_nonzero, n_long_flow, replace=False)
-        for lrc_indx in long_rc_indx:
-            i, j = row[ nonzero_rc_indx[lrc_indx]  ], col[ nonzero_rc_indx[lrc_indx] ]
-            traffic[i, j] = np.random.randint(min_long_flow, max_long_flow, size = 1, dtype=np.longlong)
+            n_long_flow = int( np.round(1.*n_nonzero*(1/(1+skewness)) ) )
+            long_rc_indx = np.random.choice(n_nonzero, n_long_flow, replace=False)
+            for lrc_indx in long_rc_indx:
+                i, j = row[ nonzero_rc_indx[lrc_indx]  ], col[ nonzero_rc_indx[lrc_indx] ]
+                traffic[i, j] = np.random.randint(min_long_flow, max_long_flow, size = 1, dtype=np.longlong)
 
-        # print(traffic)
-        # print(number_of_nodes*number_of_nodes, n_nonzero, n_long_flow, n_nonzero-n_long_flow)
-
-        np.savetxt(fname=base_file_name+".traffic.txt", X=traffic, fmt='%ld', delimiter=',')
+            np.savetxt(fname=base_file_name+".traffic.txt", X=traffic, fmt='%ld', delimiter=',')
 
         #-----------generate routes-----------------
         #choose a random number between 1 and max_hop inclusive, choose random nodes
