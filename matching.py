@@ -115,11 +115,11 @@ class Matching(object):
                 intermediates = intermediates.split( inter_node_delim )
 
                 try:
-                    i , j = int( src_dest[0] )-1, int( src_dest[1] )-1
+                    i , j = int( src_dest[0] ), int( src_dest[1] )
                     if 0 <= i and i < self.n and 0 <=j and j < self.n:
                         next_hops = []
                         for k in intermediates:
-                            k = int( k ) - 1
+                            k = int( k )
                             if 0 <= k and k < self.n  :
                                 next_hops.append(k)
                             else:
@@ -330,34 +330,3 @@ if __name__ == '__main__':
     '''
     module test
     '''
-    topo_file = './data/synthetic/topology.txt'
-    traffic_file = './data/synthetic/traffic.txt'
-    routing_file = './data/synthetic/routing.txt'
-
-    m = Matching(topo_file=topo_file, traffic_file=traffic_file, routing_file=routing_file)
-
-    print(m.current_next_hop_traffic)
-
-    m.alpha = 2
-    m.forward_packets(0, 0, 1)
-    m.forward_packets(0, 0, 3)
-    m.forward_packets(1, 1, 2)
-    m.forward_packets(1, 1, 3)
-    m.alpha = 5
-    print(m.current_next_hop_traffic)
-
-    m.forward_packets(3, 0, 1)
-    m.forward_packets(1, 0, 3)
-    m.alpha = 10
-    print(m.current_next_hop_traffic)
-
-    m.forward_packets(2, 0, 1)
-    m.alpha = 20
-    print(m.current_next_hop_traffic)
-
-    print(m.stat_routed_flows)
-    print(m.stat_fct)
-    #m.calculate_edge_weights()
-
-    #r, c = m.get_bipartite_matching()
-    #print(r, c)
