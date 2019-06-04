@@ -8,12 +8,15 @@ Use:
 from __future__ import  print_function
 from multihop_matching import Multihop_Matching,  ALGO_TYPE
 from traffic_generator import  Traffic_Generator
+import cProfile
+from timeit import default_timer as mytimer
+import pstats
 
-import   numpy as np
+import  numpy as np
 
 def experiment_runner():
     generate_traffic = True
-    generate_route_only = True
+    generate_route_only = False
     base_file_name = './data/synthetic/synthetic_1'
 
     topo_file = base_file_name+'.topology.txt'
@@ -25,11 +28,11 @@ def experiment_runner():
     edge_sparsity = 100.0 #--useless unless above is False
     max_long_flow = 200
     min_long_flow = 10
-    sparsity = 50. #---of traffic matrix---
+    sparsity = 25. #---of traffic matrix---
     skewness = 5. #---ratio between small to large flowss
-    max_hop = 1 #--as in diameter---#
+    number_of_intermediate_nodes = 3 #--as in diameter---#
 
-    W = 300   #--window size---#
+    W = 1000   #--window size---#
     delta = 1 #--switching delay
 
     algo_type = [ ALGO_TYPE.NAIVE ]
@@ -45,7 +48,7 @@ def experiment_runner():
                                 min_long_flow=min_long_flow,
                                 sparsity=sparsity,
                                 skewness=skewness,
-                                max_hop=max_hop,
+                                max_hop=number_of_intermediate_nodes-1,
                                 generate_route_only=generate_route_only)
 
     #----now run experiments----#
@@ -54,10 +57,28 @@ def experiment_runner():
         mmatching.solve_multihop_routing(algo_type=a_type)
 
         demand_met = mmatching.find_demand_met()
-
+        print("Input Parameters:\n==========================")
+        print("# Nodes:", number_of_nodes)
+        print("W, delta:", W, ",", delta)
+        print("Long Flow Size: (",max_long_flow,",", min_long_flow,")")
+        print("Traffic Sparsity: ", sparsity, "%" )
+        print("Short-to-long Flow Ratio (Skewness) :",skewness)
+        print("Max. Allowed Hop (Diameter):", number_of_intermediate_nodes-1)
+        print("Results:\n==========================")
         print("Demand Met: ", 100.*demand_met,"%")
         return
 
+def parse_profile(profile_filename):
+    p = pstats.Stats(profile_filename)
+    p.sort_stats('calls', 'tottime').print_stats()
+
 if __name__ == '__main__':
     np.random.seed(0)
-    experiment_runner()
+    start_t = mytimer()
+
+    profileCode = True
+    if profileCode:
+        cProfile.run('experiment_runner()', 'expProfile.cprof')
+    else:
+        experiment_runner()
+    print('Execution time:', np.round((mytimer() - start_t), 3), "seconds")
