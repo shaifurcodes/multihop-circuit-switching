@@ -25,26 +25,21 @@ class Traffic_Generator(object):
 
     def generate_synthetic_traffic(self, base_file_name,
                                    number_of_nodes,
+                                   W,
                                    cl,
                                    cs,
                                    nl,
                                    ns,
                                    is_complete_graph = True,
-                                   edge_sparsity = 100.0,
-                                   max_long_flow = 200,
-                                   min_long_flow = 10,
-                                   sparsity = 50.,
-                                   skewness = 5,
+                                   # edge_sparsity = 100.0,
+                                   # max_long_flow = 200,
+                                   # min_long_flow = 10,
+                                   # sparsity = 50.,
+                                   # skewness = 5,
                                    max_hop = 1,
-                                   generate_route_only = False ):
-        '''
+                                   multipath_factor = 1,
+                                   generate_route_only = False):
 
-        :param base_file_name:
-        :param number_of_nodes:
-        :param is_complete_graph:
-        :param sparsity:
-        :return:
-        '''
         #----------write topology file--------
         if not generate_route_only:
             if is_complete_graph:
@@ -55,7 +50,11 @@ class Traffic_Generator(object):
 
         #-------------write traffic file-------
         if not generate_route_only:
-            traffic = self.generate_sigmetric_traffic(number_of_nodes, cl, cs, nl, ns)
+            cl_val = int( round(W*cl/100.0,2))
+            cs_val = int( round( W*cs/100.,2))
+            nl_val = int( round(number_of_nodes*nl/100.0))
+            ns_val = int( round(number_of_nodes*ns/100.0))
+            traffic = self.generate_sigmetric_traffic(number_of_nodes, cl_val, cs_val, nl_val, ns_val)
             np.savetxt(fname=base_file_name+".traffic.txt", X=traffic, fmt='%ld', delimiter=',')
             # traffic = np.zeros((number_of_nodes, number_of_nodes), dtype=np.longlong)
             # row, col = np.where(~np.eye(traffic.shape[0],dtype=bool))
@@ -85,24 +84,71 @@ class Traffic_Generator(object):
                 for i in range(number_of_nodes):
                     for j in range(number_of_nodes):
                         if traffic[i, j] > 0:
-                            n_inter = np.random.randint(0, max_hop, size= 1, dtype=np.int)
-                            if n_inter == 0:
-                                continue
-                            selectable_nodes = list( node_list - set([i, j]) )
-                            inter_nodes = []
-                            if len(selectable_nodes) <= n_inter:
-                                inter_nodes = selectable_nodes
+                            if multipath_factor <= 1:
+                                n_inter = np.random.randint(0, max_hop, size= 1, dtype=np.int)
+                                if n_inter == 0:
+                                    continue
+                                selectable_nodes = list( node_list - set([i, j]) )
+                                inter_nodes = []
+                                if len(selectable_nodes) <= n_inter:
+                                    inter_nodes = selectable_nodes
+                                else:
+                                    inter_nodes =  np.random.choice(selectable_nodes, n_inter, replace=False)
+                                file_txt = str(i)+" , "+str(j)+" : "+str(inter_nodes[0])
+                                if len(inter_nodes)>1:
+                                    for k in inter_nodes[1:]:
+                                        file_txt += ", "+str(k)
+                                file_txt += "\n"
+                                f.write(file_txt)
                             else:
-                                inter_nodes =  np.random.choice(selectable_nodes, n_inter, replace=False)
-                            file_txt = str(i)+" , "+str(j)+" : "+str(inter_nodes[0])
-                            if len(inter_nodes)>1:
-                                for k in inter_nodes[1:]:
-                                    file_txt += ", "+str(k)
-                            file_txt += "\n"
-                            f.write(file_txt)
+                                path_list = self.get_paths(src=i, dest=j,
+                                                           number_of_nodes=number_of_nodes,
+                                                           max_hop=max_hop,
+                                                           number_of_paths=multipath_factor-1)
+                                for path in path_list: #TODO: ERROR of path -> array or list
+                                    file_txt = str(i) + " , " + str(j) + " : " + str(path[0])
+                                    if len(path) > 1:
+                                        for k in path[1:]:
+                                            file_txt += ", " + str(k)
+                                    file_txt += "\n"
+                                    f.write(file_txt)
+
+
 
         #TODO: adapt it for sparse/non-complete graphs
         return
+
+    def get_paths(self, src, dest, number_of_nodes, max_hop, number_of_paths ):
+        '''
+
+        :param src:
+        :param dest:
+        :param max_hop:
+        :param number_of_paths:
+        :return:
+        '''
+        path_list = []
+        if max_hop <= 1:
+            return path_list
+
+        candidate_nodes = list(set( range(number_of_nodes) ) - set([src, dest]) )
+        path_count = 0
+        while path_count <= (number_of_paths-1):
+            cur_path = []
+            n_inter = np.random.randint(1, max_hop, size=1, dtype=np.int)
+            if n_inter == 0:
+                continue
+            inter_nodes = []
+            if len(candidate_nodes) <= n_inter:
+                inter_nodes = candidate_nodes
+            else:
+                inter_nodes = np.random.choice(candidate_nodes, n_inter, replace=False)
+                inter_nodes = inter_nodes[0]
+            if inter_nodes in path_list:
+                continue
+            path_list.append(inter_nodes)
+            path_count += 1
+        return path_list
 
     def generate_permutation_matrix(self, n):
         '''
@@ -154,18 +200,31 @@ class Traffic_Generator(object):
 
 
 if __name__ == '__main__':
-    # base_file_name = "./data/synthetic/synthetic_1"
-    # number_of_nodes = 4
+    base_file_name = "./data/synthetic/multipath_1"
+    n = 100
+    W = 10000
+    cl, cs, nl, ns = 70, 30, 2, 6
+    max_hop = 2
+    multipath_factor = 2
+
     tg = Traffic_Generator()
-    # tg.generate_synthetic_traffic(base_file_name=base_file_name, number_of_nodes = number_of_nodes)
-    n=200
+    tg.generate_synthetic_traffic(base_file_name=base_file_name,
+                                  number_of_nodes = n,
+                                  W = W,
+                                  cl=cl,
+                                  cs=cs,
+                                  nl=nl,
+                                  ns=ns,
+                                  max_hop=max_hop,
+                                  multipath_factor = multipath_factor)
+    #n=200
     #print( tg.generate_permutation_matrix(10) )
-    cl, cs, nl, ns = 7000, 3000, 4, 12
-    t_mat = tg.generate_sigmetric_traffic(n=n, cl=cl, cs=cs, nl=nl, ns=ns)
-    x, y = np.nonzero(t_mat)
-    print(len(x), np.min(t_mat[x, y]), np.max(t_mat))
-    for i in range(t_mat.shape[0]):
-        row_txt = ""
-        for j in range(t_mat.shape[1]):
-            row_txt += str(t_mat[i, j])+" , "
-        print(row_txt)
+    # cl, cs, nl, ns = 7000, 3000, 4, 12
+    # t_mat = tg.generate_sigmetric_traffic(n=n, cl=cl, cs=cs, nl=nl, ns=ns)
+    # x, y = np.nonzero(t_mat)
+    # print(len(x), np.min(t_mat[x, y]), np.max(t_mat))
+    # for i in range(t_mat.shape[0]):
+    #     row_txt = ""
+    #     for j in range(t_mat.shape[1]):
+    #         row_txt += str(t_mat[i, j])+" , "
+    #     print(row_txt)

@@ -27,50 +27,52 @@ def experiment_runner():
     is_complete_graph = True #--snot compatible for sparse graph yet!!
     edge_sparsity = 100.0 #--useless unless above is False
 
-    cl, cs, nl, ns = 7000, 3000, 4, 12
+    cl, cs, nl, ns = 70, 30, 2, 6
 
-    max_long_flow = 100
-    min_long_flow = 20
-    sparsity = 10. #---of traffic matrix---
-    skewness = 5 #---ratio between small to large flowss
+    # max_long_flow = 100
+    # min_long_flow = 20
+    # sparsity = 10. #---of traffic matrix---
+    # skewness = 5 #---ratio between small to large flowss
     max_intermediate_nodes = 0 #--as in diameter---#
 
     W = 10000   #--window size---#
     delta = 20 #--switching delay
 
-    algo_type = [ ALGO_TYPE.NAIVE ]
+    algo_type = [ "multipath_wbt"]
 
     #-------first generate synthetic data---#
     if generate_traffic:
         tg = Traffic_Generator()
         tg.generate_synthetic_traffic( base_file_name = base_file_name,
                                 number_of_nodes = number_of_nodes,
+                                W=W,
                                 cl=cl, cs=cs, nl=nl, ns=ns,
                                 is_complete_graph=is_complete_graph,
-                                edge_sparsity=edge_sparsity,
-                                max_long_flow=max_long_flow,
-                                min_long_flow=min_long_flow,
-                                sparsity=sparsity,
-                                skewness=skewness,
+                                # edge_sparsity=edge_sparsity,
+                                # max_long_flow=max_long_flow,
+                                # min_long_flow=min_long_flow,
+                                # sparsity=sparsity,
+                                # skewness=skewness,
                                 max_hop=max_intermediate_nodes+1,
                                 generate_route_only=generate_route_only)
 
-    #----now run experiments----#
-    mmatching = Multihop_Matching(W=W, delta=delta, topo_file=topo_file, traffic_file=traffic_file, routing_file=routing_file)
-    for a_type in algo_type:
-        mmatching.solve_multihop_routing(algo_type=a_type)
+    algo_type = "multipath"
 
-        demand_met = mmatching.find_demand_met()
-        print("Input Parameters:\n==========================")
-        print("# Nodes:", number_of_nodes)
-        print("W, delta:", W, ",", delta)
-        #print("Long Flow Size: (",max_long_flow,",", min_long_flow,")")
-        #print("Traffic Sparsity: ", sparsity, "%" )
-        #print("Short-to-long Flow Ratio (Skewness) :",skewness)
-        print("Max. Allowed Hop (Diameter):", mmatching.max_hop)
-        print("Results:\n==========================")
-        print("Demand Met: ", 100.*demand_met,"%")
-        return
+    #----now run experiments----#
+    mmatching = Multihop_Matching(W=W, delta=delta, topo_file=topo_file, traffic_file=traffic_file, algo_type=algo_type, routing_file=routing_file)
+    mmatching.solve_multihop_routing()
+
+    demand_met = mmatching.find_demand_met()
+    print("Input Parameters:\n==========================")
+    print("# Nodes:", number_of_nodes)
+    print("W, delta:", W, ",", delta)
+    #print("Long Flow Size: (",max_long_flow,",", min_long_flow,")")
+    #print("Traffic Sparsity: ", sparsity, "%" )
+    #print("Short-to-long Flow Ratio (Skewness) :",skewness)
+    print("Max. Allowed Hop (Diameter):", mmatching.max_hop)
+    print("Results:\n==========================")
+    print("Demand Met: ", 100.*demand_met,"%")
+    return
 
 def parse_profile(profile_filename):
     p = pstats.Stats(profile_filename)

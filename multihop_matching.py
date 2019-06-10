@@ -26,13 +26,13 @@ from copy import deepcopy
 
 class ALGO_TYPE(Enum):
     NAIVE = 1
-    HOP_DIVIDED = 2
-    EPSILON_TRICK = 3
+    MULTIPATH = 2
+    MULTIPATH_W_BACKTRACKING = 3
     BENCHMARK_1 = 4
     BENCHMARK_2= 5
 
 class Multihop_Matching( Matching ):
-    def __init__(self, W, delta, topo_file, traffic_file, routing_file = None ):
+    def __init__(self, W, delta, topo_file, traffic_file, algo_type, routing_file = None ):
         super().__init__(topo_file, traffic_file, routing_file)
 
         self.W = W
@@ -43,8 +43,13 @@ class Multihop_Matching( Matching ):
         self.matching_history = []
         #self.packet_forwarding_history = []
 
-        self.algo_type = ALGO_TYPE
-        #self.cur_algo_type = ALGO_TYPE.NAIVE
+        #self.algo_type = ALGO_TYPE
+        self.cur_algo_type = algo_type
+        self.forward_pkt_flag = 0
+        if self.cur_algo_type == 'multipath':
+            self.forward_pkt_flag = 1
+        elif self.cur_algo_type == 'multipath_wbt':
+            self.forward_pkt_flag = 2
 
         self.stat_matching_count = 0
         self.stat_matching_time = 0
@@ -133,7 +138,7 @@ class Multihop_Matching( Matching ):
                 best_score, best_alpha = matching_score, alpha
                 best_matching = list( zip(row_indx, col_indx) )
             self.stat_matching_time +=(mytimer() - start_t)
-            print("debug: w_time, m_time:", 1000*elapsed_t_w, 1000*elapsed_t_m)
+            #print("debug: w_time, m_time:", 1000*elapsed_t_w, 1000*elapsed_t_m)
         elapsed_t = mytimer() - start_t2
         print("debug: elapsed time:", elapsed_t, " seconds ", " #-alphas: ", len(alpha_set) )
         print("debug: list of alphas: ", alpha_set)
@@ -169,7 +174,11 @@ class Multihop_Matching( Matching ):
                     src, dest, _, f, _, _  = cur_flow
                     routable_flow =  min(f, remaining_time)
                     remaining_time -= routable_flow
-                    self.forward_packets( cur_node=n1, src=src, dest=dest, in_flow_val= routable_flow )
+                    forward_pkt_flag = 0
+
+                    self.forward_packets( cur_node=n1, src=src, dest=dest, in_flow_val= routable_flow,
+                                          delete_duplicate_flows=self.forward_pkt_flag)
+
                 if not is_time_remaining:
                     break
         return
@@ -327,9 +336,8 @@ class Multihop_Matching( Matching ):
                 " avg. time:", np.round(self.stat_matching_time/self.stat_matching_count, 3), "seconds")
         return
 
-    def solve_multihop_routing(self, algo_type):
-        if algo_type == self.algo_type.NAIVE:
-            self.solve_multihop_routing_naive()
+    def solve_multihop_routing(self):
+        self.solve_multihop_routing_naive()
         return
 
     def debug_pretty_print_current_traffic(self):

@@ -248,7 +248,29 @@ class Matching(object):
                 break
         return src_dest_indx
 
-    def forward_packets(self, cur_node, src, dest, in_flow_val=-1):
+    def remove_flows(self, cur_node, src, dest, f_reduce, save_one_hop = False):
+        '''
+
+        :param n1:
+        :param src:
+        :param dest:
+        :param save_one_hop:
+        :return:
+        '''
+        for cur_indx, val in enumerate( self.current_next_hop_traffic[cur_node] ):
+            i , j , nh, f, t_hop, r_hop = val
+            if i== src and j==dest:
+                if save_one_hop:
+                    if r_hop==1:
+                        continue # don't delete one-hop now
+                if f <= f_reduce:
+                    del self.current_next_hop_traffic[cur_node][cur_indx]
+                else:  #just decrement it
+                    self.current_next_hop_traffic[cur_node][cur_indx] = (i , j , nh, f - f_reduce, t_hop, r_hop)
+        return
+
+
+    def forward_packets(self, cur_node, src, dest, in_flow_val=-1, delete_duplicate_flows = 0):
         '''
         route routed_flow_val amount of packets from n to the next hop for (src, dest) flow
         if routed_flow_val is -1, then flow whatever flow left at that node
@@ -282,6 +304,10 @@ class Matching(object):
 
         if dest == cur_next_hop: #destination reached for this flow
             self.collect_stat(src, dest, routed_flow_val)
+            if delete_duplicate_flows == 2 :
+                for i in range(self.n):
+                    self.remove_flows(i, src, dest, routed_flow_val, False)
+
 
         else: #--update entry for the next hop_node
             src_dest_indx = self.find_flow_indx_at_node(cur_node=cur_next_hop, src=src,dest=dest)
@@ -301,6 +327,15 @@ class Matching(object):
             self.current_next_hop_traffic[cur_node][cur_indx] =  (src, dest, cur_next_hop, remaining_flow,  cur_traversed_hop_count, cur_remaining_hop_count )
         else: #remove entry for current hop
             del self.current_next_hop_traffic[cur_node][cur_indx]
+
+
+        #---------------multi-path-check---------------------------------------------#
+        if cur_node == src: #just being routed at the source
+            if delete_duplicate_flows ==  1: #multihop
+                self.remove_flows(cur_node, src, dest, routed_flow_val, True)
+            elif delete_duplicate_flows ==  2: #multihop with backtracking
+                self.remove_flows(cur_node, src, dest, routed_flow_val, False)
+        #---------------end of multi-path-check--------------------------------------#
         return
 
     def collect_stat(self, src, dest, flow_val):
