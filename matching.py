@@ -30,10 +30,12 @@ class Matching(object):
         self.routing_table =  None #next hop matrix
 
         self.edge_weights = None #edge-weights calculated by the calculate_edge_weights(..) method
-        self.current_next_hop_traffic = None # 2D array each containing list of tuples (src, dest, next_node, flow_value)
+        self.current_next_hop_traffic = None #
+            # 2D array each containing list of tuples (src, dest, next_node, flow_value, path_pointer, traversed_hops, remaining_hops)
         self.stat_routed_flows = None
 
         self.cur_time = 0
+        self.max_hop = 0
 
         self.load_topology(topo_file)
         self.load_traffic(traffic_file)
@@ -43,14 +45,15 @@ class Matching(object):
         else:
             self.init_c_n_h_traffic_without_input()
 
+
         self.stat_routed_flows = np.zeros((self.n, self.n), dtype=np.longlong)
         self.stat_fct = np.zeros((self.n, self.n), dtype=np.longlong)
         return
 
     def load_topology(self, input_file):
         '''
-        :param input_file: 
-        :return: 
+        :param input_file:
+        :return:
         '''
         is_bidirectional = True
         with open(input_file, 'r') as f:
@@ -59,12 +62,13 @@ class Matching(object):
             if len(words) > 1:
                 if 'c' == words[1].lower():
                     self.topology = np.ones((self.n, self.n), dtype=np.bool)
+                    np.fill_diagonal(self.topology, False) #avoid loops
                     return
                 elif 'u' == words[1].lower():
                     is_bidirectional = False
                 elif 'b' == words[1].lower():
                     is_bidirectional =True
-            #else
+
             self.topology = np.zeros((self.n, self.n), dtype=np.bool)
             for line in f:
                 words = line.split()
@@ -78,6 +82,8 @@ class Matching(object):
                     self.topology[i, j] = True
                     if is_bidirectional:
                         self.topology[j, i] = True
+
+        np.fill_diagonal(self.topology, False) #avoid loops
         return
 
     def load_traffic(self, input_file, delimiter = ','):
@@ -102,7 +108,7 @@ class Matching(object):
         :return:
         '''
         self.routing_table = [ [ [] for i in range(self.n) ] for j in range(self.n) ]
-
+        self.max_hop = 1
         with open(input_file, 'r') as f:
             for line in f:
                 if line.isspace(): continue
@@ -125,6 +131,7 @@ class Matching(object):
                             else:
                                 raise Exception('')
                         self.routing_table[i][j] = next_hops
+                        self.max_hop = max(self.max_hop, 1+len(next_hops))
                 except:
                     print( colored( ("Error @load_routes(..) Error in loading route matrix from file ", input_file), "red") )
                     exit(1)
@@ -141,11 +148,15 @@ class Matching(object):
                 flow_val = self.traffic[i, j]
                 next_hop = -1
                 if flow_val > 0:
-                    if len(self.routing_table[i][j]) > 0:
+                    path_length = len(self.routing_table[i][j])
+                    if path_length > 0:
                         next_hop = self.routing_table[i][j][0]
                     else:
                         next_hop = j
-                    self.current_next_hop_traffic[i].append( (i, j, next_hop, flow_val) )
+                    traversed_hops = 0
+                    remaining_hops = 1+path_length
+                    intermediate_nodes = self.routing_table[i][j]
+                    self.current_next_hop_traffic[i].append( (i, j, next_hop, flow_val, traversed_hops, remaining_hops) )
 
         return
 
@@ -157,7 +168,7 @@ class Matching(object):
         for n1 in range(self.n):
             print("node: ",n1)
             for val in self.current_next_hop_traffic[n1]:
-                src, dest, nh, f = val
+                src, dest, nh, f, _, _ = val
                 print("\t(", src,",", dest,")->",nh," f:",f)
         print("=======================================")
         return
@@ -212,9 +223,9 @@ class Matching(object):
             cur_nh_traffic = self.current_next_hop_traffic
         flow_list = []
         for val in  cur_nh_traffic[cur_node] :
-            i , j , nh, f = val
+            i , j , nh, f, t_thop, r_hop = val
             if nh == next_node:
-                flow_list.append((i, j, f))
+                flow_list.append((i, j, nh, f, t_thop, r_hop))
         return flow_list
 
     def find_flow_indx_at_node(self, cur_node, src, dest, nh_traffic = None):
@@ -231,7 +242,7 @@ class Matching(object):
         if cur_nh_traffic is None:
             cur_nh_traffic = self.current_next_hop_traffic
         for indx, val in  enumerate( cur_nh_traffic[cur_node] ) :
-            i , j , nh, f = val
+            i , j , nh, f, _, _ = val
             if i==src and j==dest:
                 src_dest_indx = indx
                 break
@@ -247,12 +258,15 @@ class Matching(object):
         :param in_flow_val:
         :return:
         '''
-        cur_flow_val, cur_next_hop, cur_indx = -1, -1, -1
+        cur_flow_val, cur_next_hop, cur_indx, cur_traversed_hop_count, cur_remaining_hop_count = -1, -1, -1, -1, -1
         for indx, val in enumerate( self.current_next_hop_traffic[cur_node] ):
-            i , j , nh, f = val
+            i , j , nh, f, traversed_hop_count, remaining_hop_count = val
             if i== src and j==dest:
-                cur_flow_val, cur_next_hop, cur_indx = f, nh, indx
+                cur_indx = indx
+                cur_flow_val, cur_next_hop,  cur_traversed_hop_count, cur_remaining_hop_count  = \
+                           f,           nh,      traversed_hop_count,     remaining_hop_count
                 break
+
         if cur_flow_val == -1:
             print(colored(("Error @route_traffic(..) current (src, dest):", src, dest," not found in cur_node: ", cur_node), "red"))
             return
@@ -261,26 +275,30 @@ class Matching(object):
             return
         #else---
         routed_flow_val = in_flow_val
+
         if routed_flow_val ==-1:
             routed_flow_val = cur_flow_val
 
 
         if dest == cur_next_hop: #destination reached for this flow
             self.collect_stat(src, dest, routed_flow_val)
-        else: #--update entry for the next hop
+
+        else: #--update entry for the next hop_node
             src_dest_indx = self.find_flow_indx_at_node(cur_node=cur_next_hop, src=src,dest=dest)
             if src_dest_indx >=0:
-                src, dest, nh, f = self.current_next_hop_traffic[cur_next_hop][src_dest_indx]
-                self.current_next_hop_traffic[cur_next_hop][src_dest_indx] = (src, dest, nh, f+routed_flow_val)
+                src, dest, nh, f,  traversed_hop_count, remaining_hop_count = self.current_next_hop_traffic[cur_next_hop][src_dest_indx]
+                self.current_next_hop_traffic[cur_next_hop][src_dest_indx] = (src, dest, nh, f+routed_flow_val, traversed_hop_count, remaining_hop_count)
             else:
                 new_next_hop = self.find_next_hop(src, dest, cur_next_hop)
-                self.current_next_hop_traffic[cur_next_hop].append( (src, dest, new_next_hop, routed_flow_val) )
+                #TODO: find next hop  using path_ptr
+
+                self.current_next_hop_traffic[cur_next_hop].append( (src, dest, new_next_hop, routed_flow_val, cur_traversed_hop_count+1, cur_remaining_hop_count-1) )
 
         remaining_flow = cur_flow_val - routed_flow_val
 
-        #---updat entry for cur hop
+        #---update entry for cur hop_node
         if remaining_flow>0: #update for remaining flows
-            self.current_next_hop_traffic[cur_node][cur_indx] =  (src, dest, cur_next_hop, remaining_flow)
+            self.current_next_hop_traffic[cur_node][cur_indx] =  (src, dest, cur_next_hop, remaining_flow,  cur_traversed_hop_count, cur_remaining_hop_count )
         else: #remove entry for current hop
             del self.current_next_hop_traffic[cur_node][cur_indx]
         return
@@ -308,7 +326,7 @@ class Matching(object):
         demand_met = np.sum(self.stat_routed_flows)
         return 1.*demand_met/total_demand
 
-    def calculate_edge_weights(self):
+    def old_calculate_edge_weights(self):
         '''
         abstract class
         :return:
@@ -316,7 +334,7 @@ class Matching(object):
 
         return
 
-    def find_M_alpha(self):
+    def old_find_M_alpha(self):
         '''
         abstract class
         :return:

@@ -31,7 +31,7 @@ class Traffic_Generator(object):
                                    min_long_flow = 10,
                                    sparsity = 50.,
                                    skewness = 5,
-                                   max_hop = 3,
+                                   max_hop = 1,
                                    generate_route_only = False ):
         '''
 
@@ -75,24 +75,25 @@ class Traffic_Generator(object):
         traffic = np.loadtxt(fname=base_file_name+".traffic.txt", delimiter=',', dtype=np.longlong) #---test---#
         node_list = set( range(number_of_nodes) )
         with open(base_file_name+".routing.txt","w") as f:
-            for i in range(number_of_nodes):
-                for j in range(number_of_nodes):
-                    if traffic[i, j] > 0:
-                        n_inter = np.random.randint(0, max_hop+1, size= 1, dtype=np.int)
-                        if n_inter == 0:
-                            continue
-                        selectable_nodes = list( node_list - set([i, j]) )
-                        inter_nodes = []
-                        if len(selectable_nodes) <= n_inter:
-                            inter_nodes = selectable_nodes
-                        else:
-                            inter_nodes =  np.random.choice(selectable_nodes, n_inter, replace=False)
-                        file_txt = str(i)+" , "+str(j)+" : "+str(inter_nodes[0])
-                        if len(inter_nodes)>1:
-                            for k in inter_nodes[1:]:
-                                file_txt += ", "+str(k)
-                        file_txt += "\n"
-                        f.write(file_txt)
+            if max_hop >= 2:
+                for i in range(number_of_nodes):
+                    for j in range(number_of_nodes):
+                        if traffic[i, j] > 0:
+                            n_inter = np.random.randint(0, max_hop, size= 1, dtype=np.int)
+                            if n_inter == 0:
+                                continue
+                            selectable_nodes = list( node_list - set([i, j]) )
+                            inter_nodes = []
+                            if len(selectable_nodes) <= n_inter:
+                                inter_nodes = selectable_nodes
+                            else:
+                                inter_nodes =  np.random.choice(selectable_nodes, n_inter, replace=False)
+                            file_txt = str(i)+" , "+str(j)+" : "+str(inter_nodes[0])
+                            if len(inter_nodes)>1:
+                                for k in inter_nodes[1:]:
+                                    file_txt += ", "+str(k)
+                            file_txt += "\n"
+                            f.write(file_txt)
 
         #TODO: adapt it for sparse/non-complete graphs
         return
