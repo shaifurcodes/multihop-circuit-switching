@@ -4,5 +4,5 @@ import pstats
 if __name__ == '__main__':
     profile_filename = 'expProfile.cprof'
     p = pstats.Stats(profile_filename)
-    p.sort_stats('tottime').print_stats('matching')
+    p.sort_stats('tottime').print_stats()
 

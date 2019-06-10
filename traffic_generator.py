@@ -161,4 +161,11 @@ if __name__ == '__main__':
     n=200
     #print( tg.generate_permutation_matrix(10) )
     cl, cs, nl, ns = 7000, 3000, 4, 12
-    x = tg.generate_sigmetric_traffic(n=n, cl=cl, cs=cs, nl=nl, ns=ns)
+    t_mat = tg.generate_sigmetric_traffic(n=n, cl=cl, cs=cs, nl=nl, ns=ns)
+    x, y = np.nonzero(t_mat)
+    print(len(x), np.min(t_mat[x, y]), np.max(t_mat))
+    for i in range(t_mat.shape[0]):
+        row_txt = ""
+        for j in range(t_mat.shape[1]):
+            row_txt += str(t_mat[i, j])+" , "
+        print(row_txt)

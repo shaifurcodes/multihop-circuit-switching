@@ -23,7 +23,7 @@ def experiment_runner():
     traffic_file = base_file_name+'.traffic.txt'
     routing_file = base_file_name+'.routing.txt'
 
-    number_of_nodes = 200
+    number_of_nodes = 50
     is_complete_graph = True #--snot compatible for sparse graph yet!!
     edge_sparsity = 100.0 #--useless unless above is False
 
@@ -33,7 +33,7 @@ def experiment_runner():
     min_long_flow = 20
     sparsity = 10. #---of traffic matrix---
     skewness = 5 #---ratio between small to large flowss
-    max_intermediate_nodes = 2 #--as in diameter---#
+    max_intermediate_nodes = 0 #--as in diameter---#
 
     W = 10000   #--window size---#
     delta = 20 #--switching delay
@@ -64,10 +64,10 @@ def experiment_runner():
         print("Input Parameters:\n==========================")
         print("# Nodes:", number_of_nodes)
         print("W, delta:", W, ",", delta)
-        print("Long Flow Size: (",max_long_flow,",", min_long_flow,")")
-        print("Traffic Sparsity: ", sparsity, "%" )
-        print("Short-to-long Flow Ratio (Skewness) :",skewness)
-        print("Max. Allowed Hop (Diameter):", max_intermediate_nodes+1," debug new_variable_check self.max_hop: ", mmatching.max_hop)
+        #print("Long Flow Size: (",max_long_flow,",", min_long_flow,")")
+        #print("Traffic Sparsity: ", sparsity, "%" )
+        #print("Short-to-long Flow Ratio (Skewness) :",skewness)
+        print("Max. Allowed Hop (Diameter):", mmatching.max_hop)
         print("Results:\n==========================")
         print("Demand Met: ", 100.*demand_met,"%")
         return
