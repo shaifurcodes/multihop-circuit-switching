@@ -158,7 +158,7 @@ if __name__ == '__main__':
     # number_of_nodes = 4
     tg = Traffic_Generator()
     # tg.generate_synthetic_traffic(base_file_name=base_file_name, number_of_nodes = number_of_nodes)
-    n=10
+    n=200
     #print( tg.generate_permutation_matrix(10) )
     cl, cs, nl, ns = 7000, 3000, 4, 12
-    print(tg.generate_sigmetric_traffic(n=n, cl=cl, cs=cs, nl=nl, ns=ns))
+    x = tg.generate_sigmetric_traffic(n=n, cl=cl, cs=cs, nl=nl, ns=ns)

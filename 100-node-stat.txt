@@ -1,0 +1,95 @@
+=======================================
+debug: #-matching : 14392  avg. time: 0.079 seconds
+Input Parameters:
+==========================
+# Nodes: 100
+W, delta: 1000 , 1
+Long Flow Size: ( 100 , 20 )
+Traffic Sparsity:  10.0 %
+Short-to-long Flow Ratio (Skewness) : 5
+Max. Allowed Hop (Diameter): 3  debug new_variable_check self.max_hop:  3
+Results:
+==========================
+Demand Met:  100.0 %
+Execution time: 1133.316 seconds
+
+
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+143920000  118.727    0.000  227.272    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:172(find_edge_weight)
+142505127   73.078    0.000   73.879    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:213(find_flows_between_nodes)
+    14392   48.259    0.003  275.617    0.019 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:241(calculate_edge_weights)
+  8180501    8.107    0.000   10.796    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:161(group_flows_by_hops)
+  8180501    2.021    0.000    2.021    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:166(<listcomp>)
+  8425730    1.085    0.000    1.085    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:191(<lambda>)
+      262    0.651    0.002 1130.558    4.315 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:93(find_M_alpha)
+    26200    0.108    0.000    0.117    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:207(find_alpha_values_for_node)
+      261    0.051    0.000    1.526    0.006 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:127(virtual_route_flows)
+    11248    0.039    0.000    0.119    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:251(forward_packets)
+      261    0.037    0.000    0.963    0.004 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:332(debug_pretty_print_current_traffic)
+      262    0.033    0.000    0.155    0.001 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:226(generate_list_of_alphas)
+        1    0.009    0.009 1133.237 1133.237 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:306(solve_multihop_routing_naive)
+     6007    0.006    0.000    0.006    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:231(find_flow_indx_at_node)
+     5241    0.006    0.000    0.066    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:306(collect_stat)
+     3760    0.006    0.000    0.008    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:184(find_next_hop)
+    26200    0.005    0.000    0.005    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:213(<listcomp>)
+    26200    0.005    0.000    0.005    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:219(<listcomp>)
+        1    0.004    0.004    0.004    0.004 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:140(init_current_next_hop_traffic)
+      261    0.003    0.000    0.003    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:107(<listcomp>)
+        1    0.002    0.002    0.004    0.004 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:104(load_routes)
+        1    0.000    0.000    0.009    0.009 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:163(debug_pretty_print_init_traffic)
+        1    0.000    0.000    0.001    0.001 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:110(<listcomp>)
+        1    0.000    0.000    0.000    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:53(load_topology)
+        1    0.000    0.000    0.014    0.014 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:23(__init__)
+        1    0.000    0.000    0.014    0.014 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:35(__init__)
+        1    0.000    0.000    0.000    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:320(find_demand_met)
+        1    0.000    0.000    0.006    0.006 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:89(load_traffic)
+        1    0.000    0.000    0.000    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:145(<listcomp>)
+        1    0.000    0.000 1133.237 1133.237 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:327(solve_multihop_routing)
+
+
+debug: #-matching : 20585  avg. time: 0.456 seconds
+Input Parameters:
+==========================
+# Nodes: 200
+W, delta: 10000 , 20
+Long Flow Size: ( 100 , 20 )
+Traffic Sparsity:  10.0 %
+Short-to-long Flow Ratio (Skewness) : 5
+Max. Allowed Hop (Diameter): 3  debug new_variable_check self.max_hop:  3
+Results:
+==========================
+Demand Met:  58.4039137347 %
+Execution time: 9396.912 seconds
+
+819296797  790.802    0.000  796.518    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:213(find_flows_between_nodes)
+823400000  762.256    0.000 1803.733    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:172(find_edge_weight)
+    20585  288.010    0.014 2092.056    0.102 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:241(calculate_edge_weights)
+ 61395780   64.486    0.000   83.801    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:161(group_flows_by_hops)
+ 61395780   14.586    0.000   14.586    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:166(<listcomp>)
+ 62499364    7.947    0.000    7.947    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:191(<lambda>)
+       69    2.501    0.036 9391.278  136.105 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:93(find_M_alpha)
+    13800    0.100    0.000    0.105    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:207(find_alpha_values_for_node)
+       69    0.072    0.001    1.874    0.027 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:332(debug_pretty_print_current_traffic)
+    13692    0.051    0.000    0.154    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:251(forward_packets)
+       69    0.047    0.001    3.322    0.048 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:127(virtual_route_flows)
+       69    0.022    0.000    0.130    0.002 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:226(generate_list_of_alphas)
+        1    0.020    0.020    0.020    0.020 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:140(init_current_next_hop_traffic)
+     5860    0.011    0.000    0.011    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:231(find_flow_indx_at_node)
+        1    0.010    0.010    0.028    0.028 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:104(load_routes)
+        1    0.009    0.009 9396.596 9396.596 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:306(solve_multihop_routing_naive)
+     7832    0.008    0.000    0.084    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:306(collect_stat)
+       69    0.007    0.000    0.007    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:107(<listcomp>)
+     3687    0.005    0.000    0.008    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:184(find_next_hop)
+    13800    0.003    0.000    0.003    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:219(<listcomp>)
+    13800    0.003    0.000    0.003    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:213(<listcomp>)
+        1    0.001    0.001    0.026    0.026 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:163(debug_pretty_print_init_traffic)
+        1    0.000    0.000    0.015    0.015 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:110(<listcomp>)
+        1    0.000    0.000    0.024    0.024 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:89(load_traffic)
+        1    0.000    0.000    0.073    0.073 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:23(__init__)
+        1    0.000    0.000    0.000    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:53(load_topology)
+        1    0.000    0.000    0.000    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:145(<listcomp>)
+        1    0.000    0.000    0.000    0.000 /home/wings/PycharmProjects/multihop-circuit-switching/matching.py:320(find_demand_met)
+        1    0.000    0.000    0.073    0.073 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:35(__init__)
+        1    0.000    0.000 9396.596 9396.596 /home/wings/PycharmProjects/multihop-circuit-switching/multihop_matching.py:327(solve_multihop_routing)
+
