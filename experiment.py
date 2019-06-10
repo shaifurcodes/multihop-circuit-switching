@@ -23,17 +23,20 @@ def experiment_runner():
     traffic_file = base_file_name+'.traffic.txt'
     routing_file = base_file_name+'.routing.txt'
 
-    number_of_nodes = 100
+    number_of_nodes = 200
     is_complete_graph = True #--snot compatible for sparse graph yet!!
     edge_sparsity = 100.0 #--useless unless above is False
+
+    cl, cs, nl, ns = 7000, 3000, 4, 12
+
     max_long_flow = 100
     min_long_flow = 20
     sparsity = 10. #---of traffic matrix---
     skewness = 5 #---ratio between small to large flowss
     max_intermediate_nodes = 2 #--as in diameter---#
 
-    W = 1000   #--window size---#
-    delta = 1 #--switching delay
+    W = 10000   #--window size---#
+    delta = 20 #--switching delay
 
     algo_type = [ ALGO_TYPE.NAIVE ]
 
@@ -42,6 +45,7 @@ def experiment_runner():
         tg = Traffic_Generator()
         tg.generate_synthetic_traffic( base_file_name = base_file_name,
                                 number_of_nodes = number_of_nodes,
+                                cl=cl, cs=cs, nl=nl, ns=ns,
                                 is_complete_graph=is_complete_graph,
                                 edge_sparsity=edge_sparsity,
                                 max_long_flow=max_long_flow,
