@@ -26,8 +26,16 @@ from copy import deepcopy
 
 
 class Multihop_Matching( Matching ):
-    def __init__(self, W, delta, topo_file, traffic_file, algo_type, routing_file ):
-        super().__init__(topo_file, traffic_file, routing_file)
+    def __init__(self, W, delta, base_file_path, algo_type):
+
+        topo_file = base_file_path+".topology.txt"
+        traffic_file =  base_file_path+".traffic.txt"
+        routing_file = base_file_path+".routing.txt"
+
+        if algo_type == 'multipath' or algo_type == 'multipath_wbt':
+            routing_file = base_file_path + ".multipath.routing.txt"
+
+        super().__init__(topo_file, traffic_file, routing_file, algo_type)
 
         self.W = W
         self.delta = delta
@@ -37,7 +45,7 @@ class Multihop_Matching( Matching ):
         self.matching_history = []
         #self.packet_forwarding_history = []
 
-        self.cur_algo_type = algo_type
+
         self.forward_pkt_flag = 0
         if self.cur_algo_type == 'multipath':
             self.forward_pkt_flag = 1
@@ -102,12 +110,6 @@ class Multihop_Matching( Matching ):
 
         :return:
         '''
-        # snapshot_cur_matching =  [ [] for i in range(self.n) ]
-        # for i in range(self.n):
-        #     for val in self.current_next_hop_traffic[i]:
-        #         i, j, nh, f, path_ptr, t_hop, r_hop  =  val
-        #         snapshot_cur_matching[i].append( (i, j, nh, f, path_ptr, t_hop, r_hop) )
-
         snapshot_cur_matching = deepcopy(self.current_next_hop_traffic)
         for (n1, n2)  in self.cur_matching:
             if not self.topology[n1, n2]: #no connection, useless matching
@@ -117,7 +119,7 @@ class Multihop_Matching( Matching ):
 
             remaining_time = self.cur_alpha
             is_time_remaining = True
-            for cur_grouped_flows in grouped_flow_list[1:]:
+            for cur_grouped_flows in grouped_flow_list:
                 for cur_flow in cur_grouped_flows:
                     if remaining_time <= 0:
                         is_time_remaining = False
@@ -139,7 +141,7 @@ class Multihop_Matching( Matching ):
         '''
         grouped_flow_list = [[] for i in range(self.max_hop+1)] #0-th index useless, accounting for one-to-one index mapping
         for val in flow_list:
-            i, j, nh, f, t_hop, r_hop, p_indx =  val
+            (i, j, nh, f, t_hop, r_hop, p_indx) =  val
             grouped_flow_list[r_hop].append(val)
         return grouped_flow_list
 
@@ -243,9 +245,6 @@ class Multihop_Matching( Matching ):
         :return:
         '''
         edge_weights = np.zeros((self.n, self.n), dtype=np.float)
-        # for n1 in range(self.n):
-        #     for n2 in range(self.n):
-        #         edge_weights[n1, n2] = self.find_edge_weight(n1, n2, alpha) #TODO: minimizer iterations
         for n1 in range(self.n):
             n1_next_hops = self.find_list_of_next_hops(n1)
             if len(n1_next_hops) <=0:
@@ -255,12 +254,11 @@ class Multihop_Matching( Matching ):
         return edge_weights
 
 
-    def solve_multihop_routing_naive(self):
+    def solve_multihop_routing(self):
         iteration_count = 0
         print("iteration: ", iteration_count, " a/t  ", self.cur_alpha, "/", self.cur_time)
         self.debug_pretty_print_init_traffic()
         while self.cur_time < self.W:
-
             iteration_count += 1
             remaining_time = self.W - self.cur_time
             m, alpha = self.find_M_alpha(max_duration=remaining_time)
@@ -281,8 +279,41 @@ class Multihop_Matching( Matching ):
                 " avg. time:", np.round(self.stat_matching_time/self.stat_matching_count, 3), "seconds")
         return
 
-    def solve_multihop_routing(self):
-        self.solve_multihop_routing_naive()
+
+    def solve_benchmark_1(self):
+        '''
+
+        :return:
+        '''
+        self.cur_alpha = int(round(self.W / self.max_hop, 0))
+
+        iteration_count = 0
+        print("iteration: ", iteration_count, " a/t  ", self.cur_alpha, "/", self.cur_time)
+        self.debug_pretty_print_init_traffic()
+
+        for cur_hop in  range(self.max_hop):
+            iteration_count += 1
+            self.cur_time += self.cur_alpha
+            self.edge_weights = self.calculate_edge_weights(self.cur_alpha)
+            clipped_weights = np.clip( self.edge_weights , a_max=self.cur_alpha, a_min=0 )
+            row_indx, col_indx = linear_sum_assignment(- clipped_weights)
+            self.cur_matching = list(zip(row_indx, col_indx))
+
+            self.matching_history.append( (self.cur_matching, self.cur_alpha) )
+            self.virtual_route_flows()
+
+            print("debug: current matching")
+            print(self.cur_matching)
+
+            print("iteration: ",iteration_count, "a/t ",self.cur_alpha,"/",self.cur_time)
+            self.debug_pretty_print_current_traffic()
+        return
+
+    def run_multihop_matching_experiment(self):
+        if self.cur_algo_type  in ['benchmark_1']:
+            self.solve_benchmark_1()
+        else:
+            self.solve_multihop_routing()
         return
 
     def debug_pretty_print_current_traffic(self):

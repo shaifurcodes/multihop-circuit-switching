@@ -13,25 +13,23 @@ from timeit import default_timer as mytimer
 import pstats
 
 import  numpy as np
+import random
 
 def experiment_runner():
 
     base_file_name = './data/synthetic/multipath_1'
 
-    topo_file = base_file_name+'.topology.txt'
-    traffic_file = base_file_name+'.traffic.txt'
-    routing_file = base_file_name+'.routing.txt'
-
-    number_of_nodes = 20
+    number_of_nodes = 64
     cl, cs, nl, ns = 70, 30, 2, 6
 
-    W = 1000   #--window size---#
-    delta = 20 #--switching delay
+    W = 10000
+    delta = 20
     max_hop = 3
-    multipath_factor = 1
+    multipath_factor = 3
 
     all_algo_types = [ 'naive',  'multipath', 'multipath_wbt', 'uppberbound', 'benchmark_1', 'benchmark_2']
     algo_type = all_algo_types[0]
+
     #-------first generate synthetic data---#
     tg = Traffic_Generator()
     tg.generate_synthetic_traffic(
@@ -45,26 +43,25 @@ def experiment_runner():
                                max_hop=max_hop,
                                multipath_factor=multipath_factor)
 
-
-
-
     #----now run experiments----#
-    mmatching = Multihop_Matching(W=W,
+    mmatching = Multihop_Matching( W=W,
                                   delta=delta,
-                                  topo_file=topo_file,
-                                  traffic_file=traffic_file,
                                   algo_type=algo_type,
-                                  routing_file=routing_file)
+                                  base_file_path=base_file_name )
 
-    mmatching.solve_multihop_routing()
+    mmatching.run_multihop_matching_experiment()
 
     demand_met = mmatching.find_demand_met()
     print("Input Parameters:\n==========================")
+    print("Algo Type:", mmatching.cur_algo_type)
     print("# Nodes:", number_of_nodes)
     print("W, delta:", W, ",", delta)
-    print("Max. Allowed Hop (Diameter):", mmatching.max_hop)
+    print("Max Hop:", mmatching.max_hop, "  Max Path: ", mmatching.multipath_factor)
     print("Results:\n==========================")
     print("Demand Met: ", 100.*demand_met,"%")
+    print("Results:\n==========================")
+
+    print("Debug: overflow amount:", mmatching.debug_overflow_amount)
     return
 
 def parse_profile(profile_filename):
@@ -72,10 +69,12 @@ def parse_profile(profile_filename):
     p.sort_stats('calls', 'tottime').print_stats()
 
 if __name__ == '__main__':
-    np.random.seed(0)
+    np.random.seed(11739)
+    random.seed(11739)
+
     start_t = mytimer()
 
-    profileCode = True
+    profileCode = False
     if profileCode:
         cProfile.run('experiment_runner()', 'expProfile.cprof')
     else:

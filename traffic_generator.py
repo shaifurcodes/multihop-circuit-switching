@@ -61,30 +61,32 @@ class Traffic_Generator(object):
 
         #-----------generate routes-----------------
         traffic_x, traffic_y = traffic.shape
-        route =  [ [] for i in range(number_of_nodes) ]
-        for i in range(traffic_x):
-            route.append([])
 
-        with open(base_file_name+".routing.txt","w") as f:
-            for i in range(traffic_x):
-                for j in range(traffic_y):
-                    if traffic[i][j]>0:
-                        path_list = self.get_paths(src=i, dest=j,
-                                                   number_of_nodes=number_of_nodes,
-                                                   max_hop=max_hop,
-                                                   number_of_paths=multipath_factor)
-                        if len(path_list) <= 0:
-                            file_txt = str(i) + " , " + str(j) + " : "+'\n'
-                            f.write(file_txt)
-                        else:
-                            for path in path_list:
-                                file_txt = str(i) + " , " + str(j) + " : "
-                                if len(path)>0:
-                                    file_txt += str(path[0])
-                                for k in path[1:]:
-                                    file_txt += " , "+str(k)
-                                file_txt += '\n'
+        with open(base_file_name+".multipath.routing.txt","w")  as f:
+            with open(base_file_name + ".routing.txt", "w")  as f2:
+                for i in range(traffic_x):
+                    for j in range(traffic_y):
+                        if traffic[i][j]>0:
+                            path_list = self.get_paths(src=i, dest=j,
+                                                       number_of_nodes=number_of_nodes,
+                                                       max_hop=max_hop,
+                                                       number_of_paths=multipath_factor)
+                            if len(path_list) <= 0:
+                                file_txt = str(i) + " , " + str(j) + " : "+'\n'
                                 f.write(file_txt)
+                                f2.write(file_txt)
+                            else:
+                                for path_indx, path in enumerate(path_list):
+                                    file_txt = str(i) + " , " + str(j) + " : "
+                                    if len(path)>0:
+                                        file_txt += str(path[0])
+                                    if len(path)>1:
+                                        for k in path[1:]:
+                                            file_txt += " , "+str(k)
+                                    file_txt += '\n'
+                                    f.write(file_txt)
+                                    if path_indx == 0:
+                                        f2.write(file_txt)
         return
 
     def get_paths(self, src, dest, number_of_nodes, max_hop, number_of_paths ):

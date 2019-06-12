@@ -20,10 +20,11 @@ from termcolor import colored
 
 
 class Matching(object):
-    def __init__(self, topo_file, traffic_file, routing_file ):
+    def __init__(self, topo_file, traffic_file, routing_file, algo_type ):
         '''
 
         '''
+        self.cur_algo_type = algo_type
         self.n = 0 #no of nodes/racks
         self.topology = None # connectivity matrix
         self.traffic = None #traffic demand matrix
@@ -36,14 +37,17 @@ class Matching(object):
 
         self.cur_time = 0
         self.max_hop = 0
+        self.multipath_factor = 1
+        self.debug_overflow_amount = 0
 
         self.load_topology(topo_file)
         self.load_traffic(traffic_file)
+
         if routing_file is not None:
             self.load_routes(routing_file)
             self.init_current_next_hop_traffic()
         else:
-            self.init_c_n_h_traffic_without_input()
+            exit(1)
 
 
         self.stat_routed_flows = np.zeros((self.n, self.n), dtype=np.longlong)
@@ -109,6 +113,7 @@ class Matching(object):
         '''
         self.routing_table = [ [ [] for i in range(self.n) ] for j in range(self.n) ]
         self.max_hop = 1
+        path_count = np.zeros((self.n, self.n), dtype=np.int)
         with open(input_file, 'r') as f:
             for line in f:
                 if line.isspace(): continue
@@ -117,6 +122,9 @@ class Matching(object):
                 try:
                     src_dest = src_dest.split(inter_node_delim)
                     i , j = int( src_dest[0] ), int( src_dest[1] )
+                    #----count multipath----#
+                    path_count[i, j] +=  1
+                    #----------------------#
                     if intermediates.isspace():
                         self.routing_table[i][j].append([])  # add empty path
                         continue
@@ -134,6 +142,29 @@ class Matching(object):
                 except:
                     print( colored( ("Error @load_routes(..) Error in loading route matrix from file ", input_file), "red") )
                     exit(1)
+        self.multipath_factor = np.max(path_count)
+
+        if self.cur_algo_type == 'upperbound':
+            #----------modify routing table if upperbound, convert all routes to single hop------#
+            #------first add the relevant flows:
+            upperbound_traffic = np.zeros_like(self.traffic, dtype=np.longlong)
+            for i in range(self.n):
+                for j in range(self.n):
+                    if self.traffic[i, j] >0:
+                        cur_path  = [i]+ self.routing_table[i][j][0] + [j] #add src and dest
+                        for k in range( len(cur_path)-1):
+                            x, y = cur_path[k], cur_path[k+1]
+                            upperbound_traffic[x, y] = self.traffic[i, j]
+
+            #-----now fix the upperbound routes all should be empty []:---
+            upperbound_routing_table = [[[] for i in range(self.n)] for j in range(self.n)]
+
+            #----now replace the traffic and routes for upperbound---#
+            self.traffic = upperbound_traffic
+            self.routing_table = upperbound_routing_table
+        # if self.cur_algo_type == 'benchmark_1':
+        #     #split the traffic per hop
+        #     for i in
         return
 
     def init_current_next_hop_traffic(self):
@@ -237,7 +268,7 @@ class Matching(object):
                 break
         return src_dest_indx
 
-    def remove_flows(self, cur_node, src, dest, f_reduce):
+    def remove_flows(self, cur_node, src, dest, f_reduce, path_indx):
         '''
 
         :param cur_node:
@@ -249,7 +280,7 @@ class Matching(object):
         new_flow_list = []
         for cur_indx, val in enumerate( self.current_next_hop_traffic[cur_node] ):
             i , j , nh, f, t_hop, r_hop, p_indx = val
-            if i== src and j==dest:
+            if i== src and j==dest and path_indx == p_indx:
                 if f > f_reduce:
                     new_flow_list.append( (i , j , nh, f - f_reduce, t_hop, r_hop, p_indx) )
             else:
@@ -257,19 +288,19 @@ class Matching(object):
         self.current_next_hop_traffic[cur_node]  = new_flow_list
         return
 
-    def remove_flows_at_src(self, src, dest, save_one_hop):
+    def remove_flows_at_src(self, src, dest, except_p_indx, save_one_hop):
         '''
 
-        :param cur_node:
         :param src:
         :param dest:
+        :param except_p_indx:
         :param save_one_hop:
         :return:
         '''
         new_flow_list = []
         for cur_indx, val in enumerate( self.current_next_hop_traffic[src] ):
             i , j , nh, f, t_hop, r_hop, p_indx = val
-            if i== src and j==dest:
+            if i== src and j==dest and p_indx != except_p_indx:
                 if save_one_hop:
                     if len(self.routing_table[src][dest][p_indx])<=0: #1-hop flow
                         new_flow_list.append( val )
@@ -277,6 +308,7 @@ class Matching(object):
                 new_flow_list.append(val)
         self.current_next_hop_traffic[src]  = new_flow_list
         return
+
     def find_all_intermediate_nodes(self, src, dest, path_indx = -1):
         '''
 
@@ -304,6 +336,7 @@ class Matching(object):
         :param in_flow_val:
         :return:
         '''
+
         cur_flow_val, cur_next_hop, cur_indx, cur_traversed_hop_count, cur_remaining_hop_count, cur_p_indx =\
                                 -1, -1, -1, -1, -1, -1
         for indx, val in enumerate( self.current_next_hop_traffic[cur_node] ):
@@ -315,7 +348,7 @@ class Matching(object):
                 break
 
         if cur_flow_val == -1:
-            print(colored(("Error @route_traffic(..) current (src, dest):", src, dest," not found in cur_node: ", cur_node), "red"))
+            print(colored(("Warning @route_traffic(..) current (src, dest):", src, dest," not found in cur_node: ", cur_node), "red"))
             return
         #if no link, ignore
         if not self.topology[cur_node, cur_next_hop]:
@@ -329,11 +362,6 @@ class Matching(object):
 
         if dest == cur_next_hop: #destination reached for this flow
             self.collect_stat(src, dest, routed_flow_val)
-            #find all the intermediate nodes for (src,dest)
-            node_list = self.find_all_intermediate_nodes(src, dest)
-            node_list.append(src)
-            for cur_path_node in node_list:
-                self.remove_flows(cur_path_node, src, dest, routed_flow_val )
 
 
         else: #--update entry for the next hop_node
@@ -354,29 +382,21 @@ class Matching(object):
                                                                      cur_remaining_hop_count-1,
                                                                      cur_p_indx) )
         #update entry for the current hop
-        if cur_node == src:
-            if delete_duplicate_flows == 1:
-                self.remove_flows_at_src(src, dest, False)
-            elif delete_duplicate_flows == 2:
-                self.remove_flows_at_src(src, dest, True)
+        if cur_flow_val - routed_flow_val >0 : #flow remaining
+            self.current_next_hop_traffic[cur_node][cur_indx] =\
+                src, dest, cur_next_hop, (cur_flow_val - routed_flow_val), cur_traversed_hop_count, \
+                cur_remaining_hop_count, cur_p_indx
         else:
-            self.remove_flows(cur_node, src, dest, routed_flow_val)
-        #---update entry for cur hop_node
-        # if remaining_flow>0: #update for remaining flows
-        #     self.current_next_hop_traffic[cur_node][cur_indx] =  \
-        #         (src, dest, cur_next_hop, remaining_flow,  cur_traversed_hop_count, cur_remaining_hop_count, path_indx )
-        # else: #remove entry for current hop
-        #     print("debug: removing cur_node, cur_indx: ",cur_node, cur_indx)
-        #     #del self.current_next_hop_traffic[cur_node][cur_indx]
-        #     self.remove_flows(cur_node, src, dest)
+            del self.current_next_hop_traffic[cur_node][cur_indx]
 
-        #---------------multi-path-check---------------------------------------------#
-        # if cur_node == src: #just being routed at the source
-        #     if delete_duplicate_flows ==  1: #multihop
-        #         self.remove_flows(cur_node, src, dest, routed_flow_val, False)
-        #     elif delete_duplicate_flows ==  2: #multihop with backtracking
-        #         self.remove_flows(cur_node, src, dest, routed_flow_val, True)
-        #---------------end of multi-path-check--------------------------------------#
+        if cur_node==src:
+            if delete_duplicate_flows == 1:
+                self.remove_flows_at_src(src, dest, cur_p_indx, False)
+            elif delete_duplicate_flows == 2 :
+                self.remove_flows_at_src(src, dest, cur_p_indx, True)
+
+        if cur_next_hop==dest and delete_duplicate_flows == 2:
+                self.remove_flows_at_src(src, dest, cur_p_indx, True)
         return
 
     def collect_stat(self, src, dest, flow_val):
@@ -387,12 +407,14 @@ class Matching(object):
         :param flow:
         :return:
         '''
+
         self.stat_routed_flows[src, dest] += flow_val
         print("DEBUG: flow completed (src, dest, flow): ",src,dest, flow_val)
         if self.stat_routed_flows[src, dest] > self.traffic[src, dest]:
-            print("\tDEBUG: Warning: flows exceeded for the above")
-        # if self.stat_routed_flows[src, dest] == self.traffic[src, dest]:
-        #     self.stat_fct[src, dest] = self.cur_time
+            #---there are cases with backtracking where duplicates flow packets exist
+            #----i.e duplicate flows reach destination in the same iteration, so ignore  them
+            self.debug_overflow_amount += self.stat_routed_flows[src, dest]- self.traffic[src, dest]
+            self.stat_routed_flows[src, dest] =  self.traffic[src, dest]
         return
 
     def find_demand_met(self):
@@ -414,4 +436,4 @@ if __name__ == '__main__':
     traffic_file = base_file_name+'.traffic.txt'
     routing_file = base_file_name+'.routing.txt'
     m = Matching(topo_file=topo_file, traffic_file=traffic_file, routing_file=routing_file)
-    print("debug")
+
