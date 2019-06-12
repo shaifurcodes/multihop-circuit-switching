@@ -26,7 +26,7 @@ from copy import deepcopy
 
 
 class Multihop_Matching( Matching ):
-    def __init__(self, W, delta, topo_file, traffic_file, algo_type, routing_file = None ):
+    def __init__(self, W, delta, topo_file, traffic_file, algo_type, routing_file ):
         super().__init__(topo_file, traffic_file, routing_file)
 
         self.W = W
@@ -122,11 +122,11 @@ class Multihop_Matching( Matching ):
                     if remaining_time <= 0:
                         is_time_remaining = False
                         break
-                    src, dest, _, f, _, _  = cur_flow
+                    src, dest, _, f, _, _ , p_indx = cur_flow
                     routable_flow =  min(f, remaining_time)
                     remaining_time -= routable_flow
 
-                    self.forward_packets( cur_node=n1, src=src, dest=dest, in_flow_val= routable_flow,
+                    self.forward_packets( cur_node=n1, src=src, dest=dest, in_flow_val= routable_flow, path_indx=p_indx,
                                           delete_duplicate_flows=self.forward_pkt_flag)
                 if not is_time_remaining:
                     break
@@ -139,7 +139,7 @@ class Multihop_Matching( Matching ):
         '''
         grouped_flow_list = [[] for i in range(self.max_hop+1)] #0-th index useless, accounting for one-to-one index mapping
         for val in flow_list:
-            i, j, nh, f, t_hop, r_hop =  val
+            i, j, nh, f, t_hop, r_hop, p_indx =  val
             grouped_flow_list[r_hop].append(val)
         return grouped_flow_list
 
@@ -164,8 +164,7 @@ class Multihop_Matching( Matching ):
                 continue
             cur_flows = sorted(cur_group, key = lambda x: x[3])
             for flow in cur_flows:
-                _, _,_, flow_val,_,_ = flow
-                routable_flows = 0
+                _, _,_, flow_val,_,_ ,p_indx= flow
                 if flow_val > alpha-sum_flows:
                     alpha_exceeded = True
                     routable_flows  = alpha - sum_flows
@@ -244,9 +243,15 @@ class Multihop_Matching( Matching ):
         :return:
         '''
         edge_weights = np.zeros((self.n, self.n), dtype=np.float)
+        # for n1 in range(self.n):
+        #     for n2 in range(self.n):
+        #         edge_weights[n1, n2] = self.find_edge_weight(n1, n2, alpha) #TODO: minimizer iterations
         for n1 in range(self.n):
-            for n2 in range(self.n):
-                edge_weights[n1, n2] = self.find_edge_weight(n1, n2, alpha) #TODO: minimizer iterations
+            n1_next_hops = self.find_list_of_next_hops(n1)
+            if len(n1_next_hops) <=0:
+                continue
+            for n2 in n1_next_hops:
+                edge_weights[n1, n2] = self.find_edge_weight(n1, n2, alpha)
         return edge_weights
 
 
@@ -288,8 +293,8 @@ class Multihop_Matching( Matching ):
             n1, n2 = val
             print(n1, "-->",n2)
             for val in self.current_next_hop_traffic[n1]:
-                src, dest, nh, f,_,_ = val
-                print("\t(", src,",", dest,")->",nh," f:",f)
+                src, dest, nh, f,_,_, p_indx = val
+                print("\t(", src,",", dest,")->",nh," f:",f, " pid: ",p_indx)
         print("=======================================")
         return
     #-------end of class definition--------------#
