@@ -24,12 +24,6 @@ from scipy.optimize import linear_sum_assignment
 from timeit import default_timer as mytimer
 from copy import deepcopy
 
-class ALGO_TYPE(Enum):
-    NAIVE = 1
-    MULTIPATH = 2
-    MULTIPATH_W_BACKTRACKING = 3
-    BENCHMARK_1 = 4
-    BENCHMARK_2= 5
 
 class Multihop_Matching( Matching ):
     def __init__(self, W, delta, topo_file, traffic_file, algo_type, routing_file = None ):
@@ -43,7 +37,6 @@ class Multihop_Matching( Matching ):
         self.matching_history = []
         #self.packet_forwarding_history = []
 
-        #self.algo_type = ALGO_TYPE
         self.cur_algo_type = algo_type
         self.forward_pkt_flag = 0
         if self.cur_algo_type == 'multipath':
@@ -54,46 +47,6 @@ class Multihop_Matching( Matching ):
         self.stat_matching_count = 0
         self.stat_matching_time = 0
         return
-
-    # def old_calculate_edge_weights(self):
-    #     '''
-    #
-    #     :return:
-    #     '''
-    #     self.edge_weights = np.zeros((self.n, self.n), dtype=np.float)
-    #     for cur_node, flows in enumerate( self.current_next_hop_traffic):
-    #         for cur_flow in flows:
-    #             src, dest, next_hop, flow_val, _, _,_ = cur_flow
-    #             if self.topology[cur_node, next_hop]:
-    #                 self.edge_weights[cur_node, next_hop] += flow_val #TODO: divide by path length
-    #     return
-
-    # def old_find_M_alpha(self, max_duration = -1, hop_trick = False, epsilon_trick = False):
-    #     '''
-    #
-    #     :param max_duration:
-    #     :return:
-    #     '''
-    #     best_score = -1
-    #     best_matching = None
-    #     best_alpha = -1
-    #     alpha_set = list( set( self.edge_weights[ np.where( self.edge_weights > 0 )].flatten() ) )
-    #     if len(alpha_set) <=0 : #no traffic left
-    #         return best_matching, best_alpha
-    #
-    #     if max_duration >= 0:
-    #         alpha_set = [i  for i in alpha_set if i<=max_duration ]
-    #         if len(alpha_set) == 0 and max_duration >0: #in case no alpha after above, just use the remaining time i,e max_duration
-    #             alpha_set = [max_duration]
-    #
-    #     for alpha in alpha_set:
-    #         clipped_weights = np.clip( self.edge_weights , a_max=alpha, a_min=0 )
-    #         row_indx, col_indx = linear_sum_assignment(- clipped_weights)
-    #         matching_score = np.sum(clipped_weights[row_indx, col_indx]) / (1.0 * alpha + self.delta)
-    #         if matching_score > best_score:
-    #             best_score, best_alpha = matching_score, alpha
-    #             best_matching = list( zip(row_indx, col_indx) )
-    #     return best_matching, best_alpha
 
     def find_M_alpha(self, max_duration = -1 ):
         '''
@@ -144,7 +97,6 @@ class Multihop_Matching( Matching ):
         print("debug: list of alphas: ", alpha_set)
         return best_matching, best_alpha
 
-
     def virtual_route_flows(self):
         '''
 
@@ -161,7 +113,6 @@ class Multihop_Matching( Matching ):
             if not self.topology[n1, n2]: #no connection, useless matching
                 continue
             all_flows_between_n1_n2 = self.find_flows_between_nodes(n1, n2, nh_traffic= snapshot_cur_matching)
-            #ranked_flows_between_n1_n2 = self.rank_flows( all_flows_between_n1_n2 )
             grouped_flow_list = self.group_flows_by_hops(all_flows_between_n1_n2)
 
             remaining_time = self.cur_alpha
@@ -174,11 +125,9 @@ class Multihop_Matching( Matching ):
                     src, dest, _, f, _, _  = cur_flow
                     routable_flow =  min(f, remaining_time)
                     remaining_time -= routable_flow
-                    forward_pkt_flag = 0
 
                     self.forward_packets( cur_node=n1, src=src, dest=dest, in_flow_val= routable_flow,
                                           delete_duplicate_flows=self.forward_pkt_flag)
-
                 if not is_time_remaining:
                     break
         return
@@ -237,7 +186,7 @@ class Multihop_Matching( Matching ):
         '''
         next_hops = []
         for val in self.current_next_hop_traffic[n_indx]:
-            src, dest, nh, f, t_hop, r_hop =  val
+            src, dest, nh, f, t_hop, r_hop, p_indx =  val
             next_hops.append(nh)
         return list(set(next_hops))
 
@@ -257,7 +206,7 @@ class Multihop_Matching( Matching ):
 
 
         for val in self.current_next_hop_traffic[n_indx]:
-            i, j, nh, flow, t_hop, r_hop = val
+            i, j, nh, flow, t_hop, r_hop, p_indx = val
             nh_indx = list_of_next_hops.index(nh)
             if r_hop > 0:
                 sum_alpha_per_hop[nh_indx][r_hop] += flow
@@ -297,17 +246,8 @@ class Multihop_Matching( Matching ):
         edge_weights = np.zeros((self.n, self.n), dtype=np.float)
         for n1 in range(self.n):
             for n2 in range(self.n):
-                edge_weights[n1, n2] = self.find_edge_weight(n1, n2, alpha)
+                edge_weights[n1, n2] = self.find_edge_weight(n1, n2, alpha) #TODO: minimizer iterations
         return edge_weights
-
-
-    def rank_flows(self, flow_list):
-        '''
-
-        :param flow_list:
-        :return:
-        '''
-        return sorted( flow_list, key = lambda x: x[3], reverse=True )
 
 
     def solve_multihop_routing_naive(self):

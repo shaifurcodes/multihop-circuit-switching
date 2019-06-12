@@ -20,7 +20,7 @@ from termcolor import colored
 
 
 class Matching(object):
-    def __init__(self, topo_file, traffic_file, routing_file = None):
+    def __init__(self, topo_file, traffic_file, routing_file ):
         '''
 
         '''
@@ -31,7 +31,7 @@ class Matching(object):
 
         self.edge_weights = None #edge-weights calculated by the calculate_edge_weights(..) method
         self.current_next_hop_traffic = None #
-            # 2D array each containing list of tuples (src, dest, next_node, flow_value, path_pointer, traversed_hops, remaining_hops)
+            # 2D array each containing list of tuples (src, dest, next_node, flow_value, path_pointer, traversed_hops, remaining_hops, chosen_path_index)
         self.stat_routed_flows = None
 
         self.cur_time = 0
@@ -112,16 +112,15 @@ class Matching(object):
         with open(input_file, 'r') as f:
             for line in f:
                 if line.isspace(): continue
-
                 src_dest, intermediates = line.split(src_dest_path_delim)
-
-                if src_dest.isspace() or  intermediates.isspace(): continue
-
-                src_dest = src_dest.split( inter_node_delim )
-                intermediates = intermediates.split( inter_node_delim )
-
+                if src_dest.isspace(): continue
                 try:
+                    src_dest = src_dest.split(inter_node_delim)
                     i , j = int( src_dest[0] ), int( src_dest[1] )
+                    if intermediates.isspace():
+                        self.routing_table[i][j].append([])  # add empty path
+                        continue
+                    intermediates = intermediates.split(inter_node_delim)
                     if 0 <= i and i < self.n and 0 <=j and j < self.n:
                         next_hops = []
                         for k in intermediates:
@@ -130,7 +129,7 @@ class Matching(object):
                                 next_hops.append(k)
                             else:
                                 raise Exception('')
-                        self.routing_table[i][j] = next_hops
+                        self.routing_table[i][j].append(next_hops)
                         self.max_hop = max(self.max_hop, 1+len(next_hops))
                 except:
                     print( colored( ("Error @load_routes(..) Error in loading route matrix from file ", input_file), "red") )
@@ -148,16 +147,15 @@ class Matching(object):
                 flow_val = self.traffic[i, j]
                 next_hop = -1
                 if flow_val > 0:
-                    path_length = len(self.routing_table[i][j])
-                    if path_length > 0:
-                        next_hop = self.routing_table[i][j][0]
-                    else:
-                        next_hop = j
-                    traversed_hops = 0
-                    remaining_hops = 1+path_length
-                    intermediate_nodes = self.routing_table[i][j]
-                    self.current_next_hop_traffic[i].append( (i, j, next_hop, flow_val, traversed_hops, remaining_hops) )
-
+                    for cur_path_indx, cur_path in enumerate(self.routing_table[i][j]):
+                        cur_path_length = len(cur_path)
+                        if len(cur_path) > 0:
+                            next_hop = cur_path[0]
+                        else:
+                            next_hop = j
+                        traversed_hops = 0
+                        remaining_hops = 1+cur_path_length
+                        self.current_next_hop_traffic[i].append( (i, j, next_hop, flow_val, traversed_hops, remaining_hops,cur_path_indx ) )
         return
 
     def debug_pretty_print_init_traffic(self):
@@ -173,15 +171,7 @@ class Matching(object):
         print("=======================================")
         return
 
-    def init_c_n_h_traffic_without_input(self):
-        '''
-
-        :return:
-        '''
-        #TODO: without input file, generate intial routes/paths for current_next_hop_traffic matrix
-        return
-
-    def find_next_hop(self, src, dest, cur_hop):
+    def find_next_hop(self, src, dest, cur_hop, path_indx):
         '''
 
         :param src:
@@ -190,11 +180,10 @@ class Matching(object):
         :return:
         '''
         if self.routing_table is None:
-            #TODO: handle missing routing table (generate route as well)
             print("routing table still empty!!")
             exit(1)
         else:
-            routing_path = self.routing_table[src][dest]
+            routing_path = self.routing_table[src][dest][path_indx]
             if len(routing_path) > 0: #indirect routing
                 cur_hop_indx = -1
                 try:
@@ -223,12 +212,12 @@ class Matching(object):
             cur_nh_traffic = self.current_next_hop_traffic
         flow_list = []
         for val in  cur_nh_traffic[cur_node] :
-            i , j , nh, f, t_thop, r_hop = val
+            i , j , nh, f, t_thop, r_hop, path_indx = val
             if nh == next_node:
-                flow_list.append((i, j, nh, f, t_thop, r_hop))
+                flow_list.append((i, j, nh, f, t_thop, r_hop, path_indx))
         return flow_list
 
-    def find_flow_indx_at_node(self, cur_node, src, dest, nh_traffic = None):
+    def find_flow_indx_at_node(self, cur_node, src, dest, path_indx, nh_traffic = None):
         '''
 
         :param cur_node:
@@ -242,8 +231,8 @@ class Matching(object):
         if cur_nh_traffic is None:
             cur_nh_traffic = self.current_next_hop_traffic
         for indx, val in  enumerate( cur_nh_traffic[cur_node] ) :
-            i , j , nh, f, _, _ = val
-            if i==src and j==dest:
+            i , j , nh, f, _, _, p_indx = val
+            if i==src and j==dest and path_indx == p_indx:
                 src_dest_indx = indx
                 break
         return src_dest_indx
@@ -258,19 +247,19 @@ class Matching(object):
         :return:
         '''
         for cur_indx, val in enumerate( self.current_next_hop_traffic[cur_node] ):
-            i , j , nh, f, t_hop, r_hop = val
+            i , j , nh, f, t_hop, r_hop, p_indx = val
             if i== src and j==dest:
                 if save_one_hop:
-                    if r_hop==1:
-                        continue # don't delete one-hop now
+                    path_length = len( self.routing_table[src][dest][p_indx] )
+                    if path_length <=0: #no intermediate nodes, i.e 1-hop flow
+                        continue # don't delete one-hop flow now
                 if f <= f_reduce:
                     del self.current_next_hop_traffic[cur_node][cur_indx]
                 else:  #just decrement it
-                    self.current_next_hop_traffic[cur_node][cur_indx] = (i , j , nh, f - f_reduce, t_hop, r_hop)
+                    self.current_next_hop_traffic[cur_node][cur_indx] = (i , j , nh, f - f_reduce, t_hop, r_hop, p_indx)
         return
 
-
-    def forward_packets(self, cur_node, src, dest, in_flow_val=-1, delete_duplicate_flows = 0):
+    def forward_packets(self, cur_node, src, dest, path_indx, in_flow_val=-1, delete_duplicate_flows = 0):
         '''
         route routed_flow_val amount of packets from n to the next hop for (src, dest) flow
         if routed_flow_val is -1, then flow whatever flow left at that node
@@ -280,13 +269,14 @@ class Matching(object):
         :param in_flow_val:
         :return:
         '''
-        cur_flow_val, cur_next_hop, cur_indx, cur_traversed_hop_count, cur_remaining_hop_count = -1, -1, -1, -1, -1
+        cur_flow_val, cur_next_hop, cur_indx, cur_traversed_hop_count, cur_remaining_hop_count, cur_p_indx =\
+                                -1, -1, -1, -1, -1, -1
         for indx, val in enumerate( self.current_next_hop_traffic[cur_node] ):
-            i , j , nh, f, traversed_hop_count, remaining_hop_count = val
-            if i== src and j==dest:
+            i , j , nh, f, traversed_hop_count, remaining_hop_count, p_indx = val
+            if i== src and j==dest and path_indx == p_indx:
                 cur_indx = indx
-                cur_flow_val, cur_next_hop,  cur_traversed_hop_count, cur_remaining_hop_count  = \
-                           f,           nh,      traversed_hop_count,     remaining_hop_count
+                cur_flow_val, cur_next_hop,  cur_traversed_hop_count, cur_remaining_hop_count, cur_p_indx  = \
+                           f,           nh,      traversed_hop_count,     remaining_hop_count, p_indx
                 break
 
         if cur_flow_val == -1:
@@ -310,21 +300,29 @@ class Matching(object):
 
 
         else: #--update entry for the next hop_node
-            src_dest_indx = self.find_flow_indx_at_node(cur_node=cur_next_hop, src=src,dest=dest)
+            src_dest_indx = self.find_flow_indx_at_node(cur_node=cur_next_hop,
+                                                        src=src,
+                                                        dest=dest,
+                                                        path_indx=cur_p_indx)
             if src_dest_indx >=0:
-                src, dest, nh, f,  traversed_hop_count, remaining_hop_count = self.current_next_hop_traffic[cur_next_hop][src_dest_indx]
-                self.current_next_hop_traffic[cur_next_hop][src_dest_indx] = (src, dest, nh, f+routed_flow_val, traversed_hop_count, remaining_hop_count)
+                src, dest, nh, f,  traversed_hop_count, remaining_hop_count, p_indx = \
+                    self.current_next_hop_traffic[cur_next_hop][src_dest_indx]
+                self.current_next_hop_traffic[cur_next_hop][src_dest_indx] = \
+                    (src, dest, nh, f+routed_flow_val, traversed_hop_count, remaining_hop_count, p_indx)
             else:
-                new_next_hop = self.find_next_hop(src, dest, cur_next_hop)
-                #TODO: find next hop  using path_ptr
-
-                self.current_next_hop_traffic[cur_next_hop].append( (src, dest, new_next_hop, routed_flow_val, cur_traversed_hop_count+1, cur_remaining_hop_count-1) )
+                new_next_hop = self.find_next_hop(src, dest, cur_next_hop, )
+                self.current_next_hop_traffic[cur_next_hop].append( (src, dest, new_next_hop,
+                                                                     routed_flow_val,
+                                                                     cur_traversed_hop_count+1,
+                                                                     cur_remaining_hop_count-1,
+                                                                     p_indx) )
 
         remaining_flow = cur_flow_val - routed_flow_val
 
         #---update entry for cur hop_node
         if remaining_flow>0: #update for remaining flows
-            self.current_next_hop_traffic[cur_node][cur_indx] =  (src, dest, cur_next_hop, remaining_flow,  cur_traversed_hop_count, cur_remaining_hop_count )
+            self.current_next_hop_traffic[cur_node][cur_indx] =  \
+                (src, dest, cur_next_hop, remaining_flow,  cur_traversed_hop_count, cur_remaining_hop_count, path_indx )
         else: #remove entry for current hop
             del self.current_next_hop_traffic[cur_node][cur_indx]
 
@@ -361,21 +359,6 @@ class Matching(object):
         demand_met = np.sum(self.stat_routed_flows)
         return 1.*demand_met/total_demand
 
-    def old_calculate_edge_weights(self):
-        '''
-        abstract class
-        :return:
-        '''
-
-        return
-
-    def old_find_M_alpha(self):
-        '''
-        abstract class
-        :return:
-        '''
-        return
-
 
     #-------end of class definition--------------#
 
@@ -383,3 +366,9 @@ if __name__ == '__main__':
     '''
     module test
     '''
+    base_file_name = './data/synthetic/multipath_1'
+    topo_file = base_file_name+'.topology.txt'
+    traffic_file = base_file_name+'.traffic.txt'
+    routing_file = base_file_name+'.routing.txt'
+    m = Matching(topo_file=topo_file, traffic_file=traffic_file, routing_file=routing_file)
+    print("debug")
